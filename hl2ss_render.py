@@ -16,7 +16,7 @@ import hl2ss
 import hl2ss_rus
 
 #NOTE: look at hl2ss_rus for primitives
-
+#NOTE: plane primitive has issues
 class Hl2ssRender:
     def __init__(self):
         self.objs = []

@@ -23,7 +23,7 @@ if __name__ == '__main__':
     scale = [0.2,0.2,0.2]
     rgba = [1,1,1,1]
     while enable:
-        render.addPrimObject("cube", pos, rotation, scale, rgba)
+        render.addPrimObject("capsule", pos, rotation, scale, rgba)
         pos[0] += 1
         time.sleep(1)
 
