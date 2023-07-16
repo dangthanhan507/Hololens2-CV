@@ -46,9 +46,12 @@ MAX_DEPTH = 3.0
 
 #------------------------------------------------------------------------------
 class Hl2ssData:
-    def __init__(self, data_lt,data_pv, pv_intrinsics):
+    def __init__(self, data_lt,data_pv, pv_intrinsics, pv_extrinsics):
         self.data_lt = data_lt
         self.data_pv = data_pv
+
+        self.color_intrinsics = pv_intrinsics
+        self.color_extrinsics = pv_extrinsics
 
 
 '''
@@ -157,10 +160,8 @@ class Hl2ssStreamWrapper:
             #PV uses autofocus (intrinsics change), so we must store intrinsics in our data packet
             #save changes to extrinsics directly to member
             self.pv_intrinsics = hl2ss.update_pv_intrinsics(self.pv_intrinsics, data_pv.payload.focal_length, data_pv.payload.principal_point)
-            color_intrinsics, self.pv_extrinsics = hl2ss_3dcv.pv_fix_calibration(self.pv_intrinsics, self.pv_extrinsics)
+            color_intrinsics, color_extrinsics = hl2ss_3dcv.pv_fix_calibration(self.pv_intrinsics, self.pv_extrinsics)
 
-            self.pv_intrinsics = color_intrinsics
-
-            return Hl2ssData(data_lt, data_pv, color_intrinsics)
+            return Hl2ssData(data_lt, data_pv, color_intrinsics, color_extrinsics)
         else:
             return None

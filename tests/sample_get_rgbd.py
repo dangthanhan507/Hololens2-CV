@@ -32,7 +32,7 @@ if __name__ == '__main__':
         data_pv = data.data_pv
         data_lt = data.data_lt
 
-        rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, streamer.pv_intrinsics, streamer.pv_extrinsics)
+        rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
 
         cv2.imshow('D',depth)
         cv2.imshow('PV',rgb)
