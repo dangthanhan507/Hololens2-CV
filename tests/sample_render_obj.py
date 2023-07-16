@@ -1,3 +1,7 @@
+import sys
+ROOT_PATH = "/home/andang/workspace/CV_Lab/Hololens2-CV-Server/"
+sys.path.append(ROOT_PATH)
+
 from hl2ss_render import Hl2ssRender
 from pynput import keyboard
 import time

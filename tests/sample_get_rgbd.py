@@ -33,7 +33,7 @@ if __name__ == '__main__':
         data_lt = data.data_lt
 
         rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
-
+        print(depth.max())
         cv2.imshow('D',depth)
         cv2.imshow('PV',rgb)
         cv2.waitKey(1)
