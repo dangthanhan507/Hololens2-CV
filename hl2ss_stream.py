@@ -49,7 +49,6 @@ class Hl2ssData:
     def __init__(self, data_lt,data_pv, pv_intrinsics):
         self.data_lt = data_lt
         self.data_pv = data_pv
-        self.pv_intrinsics = pv_intrinsics
 
 
 '''
@@ -63,11 +62,12 @@ Hl2ssStreamWrapper Features:
 class Hl2ssStreamWrapper:
     def __init__(self):
         #setup and store Longthrow sensor calibrations
-        self.calib_lt = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_DEPTH_LONGTHROW, CALIB_PATH)
+        self.calib_lt = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_DEPTH_LONGTHROW, os.path.join(CALIB_PATH,"rm_depth_longthrow"))
         uv2xy = hl2ss_3dcv.compute_uv2xy(self.calib_lt.intrinsics, hl2ss.Parameters_RM_DEPTH_LONGTHROW.WIDTH, hl2ss.Parameters_RM_DEPTH_LONGTHROW.HEIGHT)
         self.xy1, self.lt_scale = hl2ss_3dcv.rm_depth_compute_rays(uv2xy, self.calib_lt.scale)
 
         #setup pv calibrations (placeholder)
+        self.pv_intrinsics = hl2ss.create_pv_intrinsics_placeholder()
         self.pv_extrinsics = np.eye(4, 4, dtype=np.float32)
 
         # stream setup producer
@@ -156,8 +156,10 @@ class Hl2ssStreamWrapper:
 
             #PV uses autofocus (intrinsics change), so we must store intrinsics in our data packet
             #save changes to extrinsics directly to member
-            pv_intrinsics = hl2ss.update_pv_intrinsics(pv_intrinsics, data_pv.payload.focal_length, data_pv.payload.principal_point)
-            color_intrinsics, self.pv_extrinsics = hl2ss_3dcv.pv_fix_calibration(pv_intrinsics, self.pv_extrinsics)
+            self.pv_intrinsics = hl2ss.update_pv_intrinsics(self.pv_intrinsics, data_pv.payload.focal_length, data_pv.payload.principal_point)
+            color_intrinsics, self.pv_extrinsics = hl2ss_3dcv.pv_fix_calibration(self.pv_intrinsics, self.pv_extrinsics)
+
+            self.pv_intrinsics = color_intrinsics
 
             return Hl2ssData(data_lt, data_pv, color_intrinsics)
         else:
