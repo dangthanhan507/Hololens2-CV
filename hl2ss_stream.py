@@ -46,12 +46,15 @@ MAX_DEPTH = 3.0
 
 #------------------------------------------------------------------------------
 class Hl2ssData:
-    def __init__(self, data_lt,data_pv, pv_intrinsics, pv_extrinsics):
+    def __init__(self, data_lt,data_pv, pv_intrinsics, pv_extrinsics, data_si=None):
         self.data_lt = data_lt
         self.data_pv = data_pv
 
         self.color_intrinsics = pv_intrinsics
         self.color_extrinsics = pv_extrinsics
+
+        #optional adds
+        self.data_si = data_si
 
 
 '''
@@ -63,7 +66,25 @@ Hl2ssStreamWrapper Features:
     -> Obtain associated pose with data
 '''
 class Hl2ssStreamWrapper:
-    def __init__(self):
+    def __init__(self, opts = {}):
+        '''
+        Parameters:
+        -----------
+
+        opts: {"feature": bool} dictionary of feature strings to see what feature to enable.
+                by default, we just enable RGB and Depth. However, other features can be used.
+
+
+        Options: (list of options from opts you can use)
+        ------------------------------------------------
+            -> "spatial input"
+        '''
+
+        #storing optional feature booleans
+        self.spatial_input_enable = False
+
+        self.checkOptional(opts)
+
         #setup and store Longthrow sensor calibrations
         self.calib_lt = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_DEPTH_LONGTHROW, os.path.join(CALIB_PATH,"rm_depth_longthrow"))
         uv2xy = hl2ss_3dcv.compute_uv2xy(self.calib_lt.intrinsics, hl2ss.Parameters_RM_DEPTH_LONGTHROW.WIDTH, hl2ss.Parameters_RM_DEPTH_LONGTHROW.HEIGHT)
@@ -81,9 +102,14 @@ class Hl2ssStreamWrapper:
         # sink placeholder variables
         self.sink_pv = None
         self.sink_depth = None
+        self.sink_si = None
 
         self.running = False
     
+    def checkOptional(self, opts):
+        if "spatial_input" in opts:
+            self.spatial_input_enable = opts["spatial_input"]
+        
     def start(self):
         '''
             Start up the Hololens Streaming. Sets up all necessary producer/consumer
@@ -95,9 +121,14 @@ class Hl2ssStreamWrapper:
         self.producer.configure_pv(True, HOST_IP, hl2ss.StreamPort.PERSONAL_VIDEO, hl2ss.ChunkSize.PERSONAL_VIDEO, hl2ss.StreamMode.MODE_1, PV_WIDTH, PV_HEIGHT, PV_FPS, PV_PROFILE, PV_BITRATE, 'rgb24')
         self.producer.configure_rm_depth_longthrow(True, HOST_IP, hl2ss.StreamPort.RM_DEPTH_LONGTHROW, hl2ss.ChunkSize.RM_DEPTH_LONGTHROW, hl2ss.StreamMode.MODE_1, hl2ss.PngFilterMode.Paeth)
 
+        if self.spatial_input_enable:
+            self.producer.configure_si(HOST_IP, hl2ss.StreamPort.SPATIAL_INPUT, hl2ss.ChunkSize.SPATIAL_INPUT)
+
         #initialize producer
         self.producer.initialize(hl2ss.StreamPort.PERSONAL_VIDEO, PV_FPS * BUFFER_LENGTH)
         self.producer.initialize(hl2ss.StreamPort.RM_DEPTH_LONGTHROW, hl2ss.Parameters_RM_DEPTH_LONGTHROW.FPS * BUFFER_LENGTH)
+        if self.spatial_input_enable:
+            self.producer.initialize(hl2ss.StreamPort.SPATIAL_INPUT, hl2ss.Parameters_SI.SAMPLE_RATE * BUFFER_LENGTH)
 
         #start producer
         self.producer.start(hl2ss.StreamPort.PERSONAL_VIDEO)
@@ -106,9 +137,13 @@ class Hl2ssStreamWrapper:
         #setup consumer
         self.sink_pv = self.consumer.create_sink(self.producer, hl2ss.StreamPort.PERSONAL_VIDEO, self.manager, None)
         self.sink_depth = self.consumer.create_sink(self.producer, hl2ss.StreamPort.RM_DEPTH_LONGTHROW, self.manager, ...)
+        if self.spatial_input_enable:
+            self.sink_si = self.consumer.create_sink(self.producer, hl2ss.StreamPort.SPATIAL_INPUT, self.manager, None)
 
         self.sink_pv.get_attach_response()
         self.sink_depth.get_attach_response()
+        if self.spatial_input_enable:
+            self.sink_si.get_attach_response()
 
         self.running = True
 
@@ -122,6 +157,10 @@ class Hl2ssStreamWrapper:
         self.sink_depth.detach()
         self.producer.stop(hl2ss.StreamPort.PERSONAL_VIDEO)
         self.producer.stop(hl2ss.StreamPort.RM_DEPTH_LONGTHROW)
+
+        if self.spatial_input_enable:
+            self.producer.stop(hl2ss.StreamPort.SPATIAL_INPUT)
+
         hl2ss.stop_subsystem_pv(HOST_IP, hl2ss.StreamPort.PERSONAL_VIDEO)
 
         #reset variables
@@ -155,6 +194,13 @@ class Hl2ssStreamWrapper:
             if ((data_pv is None) or (not hl2ss.is_valid_pose(data_pv.pose))):
                 return None
             
+            if self.spatial_input_enable:
+                _, data_si = self.sink_si.get_nearest(data_lt.timestamp)
+                if ((data_si is None) or (not hl2ss.is_valid_pose(data_si.pose))):
+                    return None
+            else:
+                data_si = None
+            
             #TODO: add more data on here as we think about more things
 
             #PV uses autofocus (intrinsics change), so we must store intrinsics in our data packet
@@ -162,6 +208,6 @@ class Hl2ssStreamWrapper:
             self.pv_intrinsics = hl2ss.update_pv_intrinsics(self.pv_intrinsics, data_pv.payload.focal_length, data_pv.payload.principal_point)
             color_intrinsics, color_extrinsics = hl2ss_3dcv.pv_fix_calibration(self.pv_intrinsics, self.pv_extrinsics)
 
-            return Hl2ssData(data_lt, data_pv, color_intrinsics, color_extrinsics)
+            return Hl2ssData(data_lt, data_pv, color_intrinsics, color_extrinsics, data_si)
         else:
             return None
