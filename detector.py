@@ -1,7 +1,7 @@
 #------------------------------------------------------------------------------
 # detector.py
 # 
-# Adding a detector class to contain code wrapping object detectors under a 
+# Adding a detector class to contain code wrapping object detector/segment under a 
 # unified framework. 
 #------------------------------------------------------------------------------
 
@@ -14,9 +14,9 @@ import torch
 '''
 Custom Bounding Box Class:
 --------------------------
-we want to abstract away the usage of yolo or another other object detector (mmdetection)
+we want to abstract away the usage of yolo or another other models (mmdetection)
 in the near future, so it is good to have a centralized way of representing the data structure
-of the object detectin output.
+of the inference output.
 
 this makes it easy to work with object tracking and any future extension.
 '''
@@ -79,7 +79,7 @@ YoloDetector:
 -------------
 Quick class wrapper around getting the results of yolo model and outputting it in the desirable BBox format.
 Unifies the usage of yolo under a class so we can do more with yolo. Also serves as an example for future usage
-with other object detectors in case this gets extended.
+with other models in case this gets extended.
 
 '''
 class YoloDetector:
@@ -92,8 +92,7 @@ class YoloDetector:
         '''
         Description:
         -------------
-        Evaluates a colored image using yolo and takes out the data structure information from
-        results. 
+        Evaluates a colored image using yolo and takes out detection.
 
         Parameters:
         ------------
@@ -105,7 +104,7 @@ class YoloDetector:
 
             box_ret: [BBox] returns list of BBox containing results
         '''
-        results = self.model.predict(image)
+        results = self.model.predict(image,conf=0.5)
         box_ret = []
         '''
         Yolov8 NOTE:
@@ -131,7 +130,46 @@ class YoloDetector:
                 else:
                     box_ret.append(BBox(xyxy[0],xyxy[1],xyxy[2],xyxy[3],name))
         return box_ret
-                        
-
-        
     
+class YoloSegment:
+    def __init__(self, model_file):
+        if not model_file.endswith('.pt'):
+            raise ValueError("File string should end with .pt")
+        
+        self.model = YOLO(model_file)
+    def eval(self, image, filter_cls=[]):
+        '''
+        Description:
+        -------------
+        Evaluates a colored image using yolo and extract segmentation and detection.
+
+        Parameters:
+        ------------
+            image: (M,N,3) np.uint8 array representing RGB image.
+            filter_cls: [String] representing list of strings that we would filter our results by 
+                        to only focus on specific classes on a model.
+        Returns:
+        --------
+            seg: (M,N) image of segmentations
+            box_ret: [BBox] returns list of BBox containing results
+        '''
+
+        height, width, _ = image.shape
+        results = self.model.predict(image,boxes=True,conf=0.25)
+        for result in results:
+            print(result.masks.data[0,:,:]) 
+            mask0 = result.masks.data[0,:,:]
+            mask_im = np.zeros((height,width))
+            mask_im[mask0.cpu()==1] = 1
+            cv2.imshow('seg0', mask_im)
+            cv2.waitKey(1)
+            
+            # for mask in result.masks.xy:
+            #     #masks.xy return [P,2] where P is # of pixels under segmenatation
+            #     print(mask)
+            #     mask = mask.astype(np.int32)
+
+            #     mask_im = np.zeros((height,width))
+            #     mask_im[mask[:,1], mask[:,0] ] = 1
+            #     cv2.imshow('mask', mask_im)
+            #     cv2.waitKey(1)

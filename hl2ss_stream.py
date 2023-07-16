@@ -56,6 +56,21 @@ class Hl2ssData:
         #optional adds
         self.data_si = data_si
 
+class HandPoseData:
+    def __init__(self, data_si):
+        self.isNone = (data_si is None)
+        if not self.isNone:
+            si = hl2ss.unpack_si(data_si.payload)
+
+            if si.is_valid_head_pose() and si.is_valid_hand_left() \
+                and si.is_valid_hand_right() and si.is_valid_eye_ray():
+                self.head_pose = si.get_head_pose()
+                self.hand_left = si.get_hand_left()
+                self.hand_right = si.get_hand_right()
+                self.eye_ray = si.get_eye_ray()
+            else:
+                self.si = None
+                self.isNone = True
 
 '''
 Hl2ssStreamWrapper Features:
