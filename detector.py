@@ -72,8 +72,6 @@ class BBox:
         cv2.putText(image, self.name, (int(self.x0),int(self.y0)-12), 0, 1e-3*height, (255,0,0), thick//3)
         return image
 
-
-
 '''
 YoloDetector:
 -------------
@@ -156,20 +154,27 @@ class YoloSegment:
 
         height, width, _ = image.shape
         results = self.model.predict(image,boxes=True,conf=0.25)
+        # results = self.model.predict(image,boxes=True,conf=0.25,retina_masks=True)
+        box_ret = []
+        mask_ret = []
         for result in results:
-            print(result.masks.data[0,:,:]) 
-            mask0 = result.masks.data[0,:,:]
-            mask_im = np.zeros((height,width))
-            mask_im[mask0.cpu()==1] = 1
-            cv2.imshow('seg0', mask_im)
-            cv2.waitKey(1)
-            
-            # for mask in result.masks.xy:
-            #     #masks.xy return [P,2] where P is # of pixels under segmenatation
-            #     print(mask)
-            #     mask = mask.astype(np.int32)
+            (N,H,W) = result.masks.data.shape
+            for n in range(N):
+                mask = result.masks.data[n,:,:]
 
-            #     mask_im = np.zeros((height,width))
-            #     mask_im[mask[:,1], mask[:,0] ] = 1
-            #     cv2.imshow('mask', mask_im)
-            #     cv2.waitKey(1)
+                box = result.boxes[n]
+                xyxy = box.xyxy[0] # top left, bot right
+                c = box.cls #class index
+
+                #use class index to access name in models
+                name = self.model.names[int(c)]
+
+                #if we decide to filter boxes for a specific kind of class
+                if len(filter_cls) > 0:
+                    if name in filter_cls:
+                        box_ret.append(BBox(xyxy[0],xyxy[1],xyxy[2],xyxy[3],name))
+                        mask_ret.append(mask.cpu().numpy())
+                else:
+                    box_ret.append(BBox(xyxy[0],xyxy[1],xyxy[2],xyxy[3],name))
+                    mask_ret.append(mask.cpu().numpy())
+        return mask_ret, box_ret

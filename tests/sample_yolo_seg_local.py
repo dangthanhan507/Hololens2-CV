@@ -27,8 +27,16 @@ if __name__ == '__main__':
     while enable:
         ret, frame = cap.read()
         if ret:
-            detector.eval(frame)
-            
+            masks, boxes = detector.eval(frame)
+            for n in range(len(masks)):
+                mask = masks[n]
+
+                cv2.imshow(f'mask{n}', mask)
+                cv2.waitKey(1)
+
+                box = boxes[n]
+                frame = box.drawBox(frame)
+
             cv2.imshow('frame',frame)
             cv2.waitKey(1)
 
