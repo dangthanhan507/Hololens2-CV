@@ -24,10 +24,10 @@ if __name__ == '__main__':
 
     pos = [0.0,0.0,0.1]
     rotation = [0, 0, 0, 1]
-    scale = [1,1,1]
+    scale = [0.1,0.1,0.1]
     rgba = [1,1,1,1]
     while enable:
-        render.addPrimObject("quad", pos, rotation, scale, rgba)
+        render.addPrimObject("sphere", pos, rotation, scale, rgba)
         pos[0] += 1
         time.sleep(1)
         print(render.objs)
