@@ -18,6 +18,7 @@ def on_press(key):
     enable = key != keyboard.Key.esc
     return enable
 
+marker_size = 0.02
 
 if __name__ == '__main__':
     print('Starting up Server')
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     detect_aruco = cv2.aruco.ArucoDetector(dictionary, parameters)
 
     rotation = [0, 0, 0, 1]
-    scale = [0.01,0.01,0.01]
+    scale = np.array([0.1,0.1,0.1])*0.1
     rgba = [1,0,0,1]
     while enable:
         render.clear()
@@ -51,17 +52,30 @@ if __name__ == '__main__':
 
         #show detection
         corners,idx,rejected = detect_aruco.detectMarkers(rgb)
-        for corner in corners:
-            cr = corner.squeeze().T.astype(np.int32)
-            pts3d = pts2d_to_pts3d(cr, depth, data.color_intrinsics[:3,:3].T)
-            _,N = pts3d.shape
-            pts3d_h = np.vstack((pts3d,np.ones((1,N))))
-            pts3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics).T @  pts3d_h )[:3,:]           
+        
+        marker_points = np.array([[-marker_size / 2, marker_size / 2, 0],
+                                [marker_size / 2, marker_size / 2, 0],
+                                [marker_size / 2, -marker_size / 2, 0],
+                                [-marker_size / 2, -marker_size / 2, 0]], dtype=np.float32)
+        
+        render.addPrimObject('sphere', [0,0,0], rotation, scale.tolist(), [1,1,1,1])
+        for c in corners:
+            _, rvec, tvec = cv2.solvePnP(marker_points, c, data.color_intrinsics[:3,:3].T, np.zeros((4,1)), False, cv2.SOLVEPNP_IPPE_SQUARE)
+            R,_ = cv2.Rodrigues(rvec) #rotation matrix
+            t = tvec.reshape(3,1)
+            Rt = np.eye(4)
+            Rt[:3,:3] = R
+            Rt[:3,-1] = t.flatten()
 
-            # print(pts3d)
-            for n in range(N):
-                pos = pts3d[:,n].tolist()
-                render.addPrimObject("sphere", pos, rotation, scale, rgba)
+            t4 = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ np.linalg.inv(Rt))[:,-1].reshape(4,1)
+            # t4 = Rt[:,-1].reshape(4,1)
+
+            # print(t4[:3,:].flatten())
+            pos = t4[:3,:].flatten()
+            pos[2] *= -1
+
+            render.addPrimObject("sphere", pos, rotation, scale.tolist(), rgba)
+            
 
         #TODO: fix reprojection depth having holes in the depth
         depth = depth / depth.max() * 255
@@ -72,7 +86,7 @@ if __name__ == '__main__':
         cv2.imshow('RGB',rgb)
         cv2.imshow('D',depth)
         cv2.waitKey(1)
-        time.sleep(5)
+        time.sleep(1)
         
 
     
