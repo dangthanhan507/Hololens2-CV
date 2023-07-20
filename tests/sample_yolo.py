@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
 
     rotation = [0, 0, 0, 1]
-    scale = np.array([0.1,0.1,0.1])*0.1
+    scale = np.array([0.1,0.1,0.1])*0.5
     rgba = [1,1,0,1]
     detector = YoloDetector("yolov8n.pt")
 
@@ -47,8 +47,9 @@ if __name__ == '__main__':
         data_lt = data.data_lt
 
         rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
-        # pts3d_image = cv_utils.rgbd_getpoints_imshape(depth, data.color_intrinsics[:3,:3].T)
+        pts3d_image = cv_utils.rgbd_getpoints_imshape(depth, data.color_intrinsics[:3,:3].T)
         bboxes = detector.eval(rgb)
+
         for bbox in bboxes:
             rgb = bbox.drawBox(rgb)
 
@@ -56,10 +57,10 @@ if __name__ == '__main__':
             x1,y1 = bbox.getBR()
             x0,y0 = int(x0), int(y0)
             x1,y1 = int(x1), int(y1)
-            # pts3d_bbox = pts3d_image[y0:y1, x0:x1]
-            # pts3d = pts3d_bbox.reshape(3,-1)
-            pts3d = cv_utils.bbox_getdepth(depth, bbox, data.color_intrinsics[:3,:3].T)
-            pts3d = pts3d[:,pts3d[2,:] != 0]
+            pts3d_bbox = pts3d_image[y0:y1, x0:x1]
+            pts3d = pts3d_bbox.reshape(3,-1)
+            pts3d = pts3d[:,pts3d[2,:] > 0]
+            # pts3d = cv_utils.bbox_getdepth(depth, bbox, data.color_intrinsics[:3,:3].T)
             pts3d = np.mean(pts3d,axis=1).reshape(3,1)
             pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
             pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
@@ -69,9 +70,9 @@ if __name__ == '__main__':
 
             render.addPrimObject("sphere", pos, rotation, scale.tolist(), rgba)
 
-            cv2.imshow('rgb bbox', rgb[y0:y1,x0:x1])
-            cv2.imshow('depth bbox', depth[y0:y1, x0:x1])
-            cv2.waitKey(1)
+            # cv2.imshow('rgb bbox', rgb[y0:y1,x0:x1])
+            # cv2.imshow('depth bbox', depth[y0:y1, x0:x1])
+            # cv2.waitKey(1)
 
 
 

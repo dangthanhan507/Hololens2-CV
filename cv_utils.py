@@ -10,6 +10,22 @@
 import numpy as np
 from detector import BBox
 
+# def rgbd_getpoints_imshape(depth, pv_intrinsics):
+#     height,width = depth.shape
+#     yy,xx = np.mgrid[:height,:width]
+
+#     fx = pv_intrinsics[0,0]
+#     fy = pv_intrinsics[1,1]
+#     c = pv_intrinsics[:3,-1].copy().reshape(3,1)
+#     c[2,0] = 0
+
+#     pts_im = np.dstack((xx,yy,np.ones(xx.shape)))
+#     pts_im = pts_im - c.T
+#     pts_im[:,:,0] /= fx
+#     pts_im[:,:,1] /= fy
+#     pts_im *= depth[:,:,np.newaxis]
+
+#     return pts_im
 def rgbd_getpoints_imshape(depth, pv_intrinsics):
     m,n = depth.shape
     pts3d = rgbd_getpoints(depth, pv_intrinsics)
