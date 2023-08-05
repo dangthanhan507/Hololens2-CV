@@ -65,8 +65,8 @@ class Hl2ssRender:
         display_list.set_world_transform(0, pos, rot, scale)
         display_list.set_color(0, rgba)
         display_list.set_active(0, hl2ss_rus.ActiveState.Active)
+        display_list.set_target_mode(hl2ss_rus.TargetMode.UseID) # Restore target mode
         display_list.end_display_list()
-
         self.ipc.push(display_list)
         results = self.ipc.pull(display_list)
 
@@ -80,7 +80,8 @@ class Hl2ssRender:
         display_list = hl2ss_rus.command_buffer()
         display_list.begin_display_list() #cmd 0
 
-        cmd_idxs = list(range(1,1+5*len(render_objects),5)) # 1, 6, 11,.... listing all idx of added obj
+        N = len(render_objects)
+        cmd_idxs = list(range(N,N+5*N,5)) # 1, 6, 11,.... listing all idx of added obj
         for i in range(len(render_objects)):
             render_obj = render_objects[i]
             pos = render_obj.pos
@@ -94,14 +95,23 @@ class Hl2ssRender:
             display_list.set_world_transform(0, pos, rot, scale)
             display_list.set_color(0, rgba)
             display_list.set_active(0, hl2ss_rus.ActiveState.Active)
+        display_list.set_target_mode(hl2ss_rus.TargetMode.UseID) # Restore target mode
+        display_list.end_display_list()
         self.ipc.push(display_list)
         results = self.ipc.pull(display_list)
 
-        object_ids = [results[idx] for idx in cmd_idxs ]
+        object_ids = [results[idx] for idx in cmd_idxs]
         self.objs = self.objs + object_ids
 
         return object_ids
-
+    def transformObj(self, object_id, render_obj):
+        display_list = hl2ss_rus.command_buffer()
+        display_list.begin_display_list()
+        display_list.set_world_transform(object_id, render_obj.pos, render_obj.rot, render_obj.scale)
+        display_list.end_display_list()
+        self.ipc.push(display_list)
+        results = self.ipc.pull(display_list)
+        return results
     
     def removePrimObject(self, object_id):
         if object_id in self.objs:
@@ -110,7 +120,7 @@ class Hl2ssRender:
             display_list = hl2ss_rus.command_buffer()
             display_list.begin_display_list()
             display_list.remove(object_id)
-            display_list.remove_display_list()
+            display_list.end_display_list()
             self.ipc.push(display_list)
 
 

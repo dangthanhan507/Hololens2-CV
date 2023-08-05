@@ -22,22 +22,30 @@ if __name__ == '__main__':
     render = Hl2ssRender()
     render.start()
 
+    render.clear()
+
     pos = [0.0,0.0,0.1]
     rotation = [0, 0, 0, 1]
     scale = [0.1,0.1,0.1]
     rgba = [1,1,1,1]
-    render.addPrimObject("sphere", pos, rotation, scale, rgba)
+        
 
     render_objs = []
     for i in range(4):
         pos = [float(i),0.0,0.1]
         render_objs.append(RenderObject('sphere', pos,rotation,scale,rgba))
     
-    render.addPrimObjects(render_objs)
+    object_ids = render.addPrimObjects(render_objs)
 
+    render.removePrimObject(object_ids[3])
+
+    y = 0
     while enable:
-        time.sleep(1)
-    
+        y += 0.1
+        for i in range(3):
+            render_objs[i].pos = [i,y,0.1]
+            render.transformObj(object_ids[i], render_objs[i])
+            time.sleep(1)
     render.clear()
     render.stop()
     listener.join()
