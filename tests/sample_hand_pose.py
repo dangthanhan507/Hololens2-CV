@@ -29,9 +29,13 @@ if __name__ == '__main__':
             continue
         lt = data.data_lt.payload.depth
         pv = data.data_pv.payload.image
-        if not (data.data_si.si is None) and not (data.data_si.hand_left is None):
-            left_pos = data.data_si.hand_left.positions
-            print(left_pos)
+        if not (data.data_si.si is None):
+            if not (data.data_si.hand_left is None):
+                left_pos = data.data_si.hand_left.positions
+                print(left_pos)
+            if not (data.data_si.hand_right is None):
+                right_pos = data.data_si.hand_right.positions
+                print(right_pos)
 
         cv2.imshow('LT',lt / lt.max())
         cv2.imshow('PV',pv[:,:,::-1])
