@@ -81,7 +81,7 @@ class Hl2ssRender:
         display_list.begin_display_list() #cmd 0
 
         N = len(render_objects)
-        cmd_idxs = list(range(N,N+5*N,5)) # 1, 6, 11,.... listing all idx of added obj
+        cmd_idxs = list(range(min(N,4),min(N,4)+5*N,5)) # 1, 6, 11,.... listing all idx of added obj
         for i in range(len(render_objects)):
             render_obj = render_objects[i]
             pos = render_obj.pos
@@ -99,6 +99,8 @@ class Hl2ssRender:
         display_list.end_display_list()
         self.ipc.push(display_list)
         results = self.ipc.pull(display_list)
+
+        print(results)
 
         object_ids = [results[idx] for idx in cmd_idxs]
         self.objs = self.objs + object_ids
