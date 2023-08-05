@@ -41,11 +41,13 @@ if __name__ == '__main__':
 
     y = 0
     while enable:
-        y += 0.1
+        # y += 0.1
         for i in range(3):
             render_objs[i].pos = [i,y,0.1]
-            render.transformObj(object_ids[i], render_objs[i])
-            time.sleep(1)
+        #     render.transformObj(object_ids[i], render_objs[i])
+        y += 0.1
+        render.transformObjs(object_ids,render_objs)
+        time.sleep(1)
     render.clear()
     render.stop()
     listener.join()

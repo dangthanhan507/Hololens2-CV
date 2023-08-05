@@ -112,6 +112,17 @@ class Hl2ssRender:
         self.ipc.push(display_list)
         results = self.ipc.pull(display_list)
         return results
+    def transformObjs(self, object_ids, render_objs):
+        display_list = hl2ss_rus.command_buffer()
+        display_list.begin_display_list()
+        for i in range(len(object_ids)):
+            object_id = object_ids[i]
+            render_obj = render_objs[i]
+            display_list.set_world_transform(object_id, render_obj.pos, render_obj.rot, render_obj.scale)
+        display_list.end_display_list()
+        self.ipc.push(display_list)
+        results = self.ipc.pull(display_list)
+        return results
     
     def removePrimObject(self, object_id):
         if object_id in self.objs:
