@@ -29,12 +29,6 @@ if __name__ == '__main__':
     streamer.start()
     render.start()
 
-
-    #aruco stuff
-    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_50)
-    parameters = cv2.aruco.DetectorParameters()
-    detect_aruco = cv2.aruco.ArucoDetector(dictionary, parameters)
-
     rotation = [0, 0, 0, 1]
     scale = np.array([0.1,0.1,0.1])*1
     rgba = [1,0,0,1]

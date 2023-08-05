@@ -22,6 +22,7 @@ sys.path.append(os.path.join(ROOT_PATH,'hl2ss','viewer'))
 import hl2ss
 import hl2ss_mp
 import hl2ss_3dcv
+import hl2ss_utilities
 
 # hl2ss Settings --------------------------------------------------------------
 HOST_IP = '192.168.43.19' #ipv4 of hololens
@@ -54,23 +55,32 @@ class Hl2ssData:
         self.color_extrinsics = pv_extrinsics
 
         #optional adds
-        self.data_si = data_si
+        self.data_si = HandPoseData(data_si)
 
 class HandPoseData:
     def __init__(self, data_si):
-        self.isNone = (data_si is None)
-        if not self.isNone:
-            si = hl2ss.unpack_si(data_si.payload)
+        
+        self.si = None
+        self.head_pose  = None
+        self.hand_left  = None
+        self.hand_right = None
+        self.eye_ray    = None
 
-            if si.is_valid_head_pose() and si.is_valid_hand_left() \
-                and si.is_valid_hand_right() and si.is_valid_eye_ray():
-                self.head_pose = si.get_head_pose()
-                self.hand_left = si.get_hand_left()
-                self.hand_right = si.get_hand_right()
-                self.eye_ray = si.get_eye_ray()
-            else:
-                self.si = None
-                self.isNone = True
+        if not (data_si is None):
+            print('Unpacking')
+            self.si = hl2ss.unpack_si(data_si.payload)
+
+            if self.si.is_valid_head_pose():
+                self.head_pose = self.si.get_head_pose()
+            if self.si.is_valid_hand_left():
+                self.hand_left = hl2ss_utilities.si_unpack_hand(self.si.get_hand_left())
+            if self.si.is_valid_hand_right():
+                self.hand_right = hl2ss_utilities.si_unpack_hand(self.si.get_hand_right())
+            if self.si.is_valid_eye_ray():
+                self.eye_ray = self.si.get_eye_ray()
+        else:
+            self.si = None
+            
 
 '''
 Hl2ssStreamWrapper Features:
@@ -135,7 +145,6 @@ class Hl2ssStreamWrapper:
         #configure profiles
         self.producer.configure_pv(True, HOST_IP, hl2ss.StreamPort.PERSONAL_VIDEO, hl2ss.ChunkSize.PERSONAL_VIDEO, hl2ss.StreamMode.MODE_1, PV_WIDTH, PV_HEIGHT, PV_FPS, PV_PROFILE, PV_BITRATE, 'rgb24')
         self.producer.configure_rm_depth_longthrow(True, HOST_IP, hl2ss.StreamPort.RM_DEPTH_LONGTHROW, hl2ss.ChunkSize.RM_DEPTH_LONGTHROW, hl2ss.StreamMode.MODE_1, hl2ss.PngFilterMode.Paeth)
-
         if self.spatial_input_enable:
             self.producer.configure_si(HOST_IP, hl2ss.StreamPort.SPATIAL_INPUT, hl2ss.ChunkSize.SPATIAL_INPUT)
 
@@ -148,6 +157,8 @@ class Hl2ssStreamWrapper:
         #start producer
         self.producer.start(hl2ss.StreamPort.PERSONAL_VIDEO)
         self.producer.start(hl2ss.StreamPort.RM_DEPTH_LONGTHROW)
+        if self.spatial_input_enable:
+            self.producer.start(hl2ss.StreamPort.SPATIAL_INPUT)
 
         #setup consumer
         self.sink_pv = self.consumer.create_sink(self.producer, hl2ss.StreamPort.PERSONAL_VIDEO, self.manager, None)
@@ -170,9 +181,11 @@ class Hl2ssStreamWrapper:
         #stop network streams
         self.sink_pv.detach()
         self.sink_depth.detach()
+        if self.spatial_input_enable:
+            self.sink_si.detach()
+
         self.producer.stop(hl2ss.StreamPort.PERSONAL_VIDEO)
         self.producer.stop(hl2ss.StreamPort.RM_DEPTH_LONGTHROW)
-
         if self.spatial_input_enable:
             self.producer.stop(hl2ss.StreamPort.SPATIAL_INPUT)
 
@@ -211,7 +224,7 @@ class Hl2ssStreamWrapper:
             
             if self.spatial_input_enable:
                 _, data_si = self.sink_si.get_nearest(data_lt.timestamp)
-                if ((data_si is None) or (not hl2ss.is_valid_pose(data_si.pose))):
+                if (data_si is None):
                     return None
             else:
                 data_si = None
