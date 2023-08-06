@@ -18,6 +18,7 @@ class Pose:
 def pose2render(pose, scale, rgba, type):
     
     pos = pose.t_vec.flatten().tolist()
+    pos[2] *= -1
     rot = Rotation.from_matrix(pose.rot_mat).as_quat()
     return RenderObject(type, pos, rot, scale, rgba)
 

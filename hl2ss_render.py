@@ -14,6 +14,7 @@ sys.path.append(os.path.join(ROOT_PATH,'hl2ss','viewer'))
 
 import hl2ss
 import hl2ss_rus
+import numpy as np
 
 def getObjectType(object):
     if object == "cube":
@@ -115,12 +116,16 @@ class Hl2ssRender:
         display_list.end_display_list()
         self.ipc.push(display_list)
         results = self.ipc.pull(display_list)
+        # print(np.array(results).astype(np.float32).reshape((-1,1)))
 
         offset = 0
         while results[offset] == 1:
             offset += 1
+            if offset >= len(results):
+                offset = 0
+                break
         cmd_idxs = list(range(offset,offset+5*N,5)) # 1, 6, 11,.... listing all idx of added obj
-        # print(results)
+        
 
         object_ids = [results[idx] for idx in cmd_idxs]
         self.objs = self.objs + object_ids
