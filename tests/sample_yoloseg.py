@@ -3,7 +3,7 @@ ROOT_PATH = "/home/andang/workspace/CV_Lab/Hololens2-CV-Server/"
 sys.path.append(ROOT_PATH)
 
 from hl2ss_stream import Hl2ssStreamWrapper, Hl2ssData
-from detector import BBox, YoloDetector
+from detector import BBox, YoloDetector, YoloSegment
 from hl2ss_render import Hl2ssRender, RenderObject
 from hl2ss_utils import Hl2ssDepthProcessor
 from pynput import keyboard
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     rotation = [0, 0, 0, 1]
     scale = np.array([0.1,0.1,0.1])*0.5
     rgba = [1,1,0,1]
-    detector = YoloDetector("yolov8n.pt")
+    detector = YoloSegment("yolov8n-seg.pt")
 
     while enable:
         streamer.waitReady()
@@ -48,31 +48,55 @@ if __name__ == '__main__':
 
         rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
         pts3d_image = cv_utils.rgbd_getpoints_imshape(depth, data.color_intrinsics[:3,:3].T)
-        bboxes = detector.eval(rgb)
+        masks, bboxes = detector.eval(rgb)
 
-        for bbox in bboxes:
-            rgb = bbox.drawBox(rgb)
 
-            x0,y0 = bbox.getTL()
-            x1,y1 = bbox.getBR()
-            x0,y0 = int(x0), int(y0)
-            x1,y1 = int(x1), int(y1)
-            pts3d_bbox = pts3d_image[y0:y1, x0:x1]
-            pts3d = pts3d_bbox.reshape(3,-1)
+        depth_mask = (np.zeros(pts3d_image.shape[:2]) != 0)
+        for n in range(len(masks)):
+            mask = masks[n]
+            mask = cv2.resize(mask,pts3d_image.shape[:2][::-1],interpolation=cv2.INTER_AREA)
+            pts3d_mask = pts3d_image[mask > 0]
+            pts3d = pts3d_mask.reshape(3,-1)            
             pts3d = pts3d[:,pts3d[2,:] > 0]
-            # pts3d = cv_utils.bbox_getdepth(depth, bbox, data.color_intrinsics[:3,:3].T)
-            pts3d = np.mean(pts3d,axis=1).reshape(3,1)
+            
             pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
             pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
+            pts_3d = np.mean(pts_3d,axis=1).reshape(3,1)
+            print(pts_3d)
+
             pos = pts_3d.flatten().tolist()
             pos[2] *= -1
-            print(bbox.name, pos)
-
             render.addPrimObject(RenderObject("cube", pos, rotation, scale.tolist(), rgba))
 
-            # cv2.imshow('rgb bbox', rgb[y0:y1,x0:x1])
-            # cv2.imshow('depth bbox', depth[y0:y1, x0:x1])
-            # cv2.waitKey(1)
+            bbox = bboxes[n]
+            rgb = bbox.drawBox(rgb)
+
+            # x0,y0 = bbox.getTL()
+            # x1,y1 = bbox.getBR()
+            # x0,y0 = int(x0), int(y0)
+            # x1,y1 = int(x1), int(y1)
+            # depth_mask[y0:y1, x0:x1] = True
+            depth_mask[mask > 0] = True
+        # for bbox in bboxes:
+        #     rgb = bbox.drawBox(rgb)
+
+        #     x0,y0 = bbox.getTL()
+        #     x1,y1 = bbox.getBR()
+        #     x0,y0 = int(x0), int(y0)
+        #     x1,y1 = int(x1), int(y1)
+        #     pts3d_bbox = pts3d_image[y0:y1, x0:x1]
+        #     pts3d = pts3d_bbox.reshape(3,-1)
+        #     pts3d = pts3d[:,pts3d[2,:] > 0]
+        #     # pts3d = cv_utils.bbox_getdepth(depth, bbox, data.color_intrinsics[:3,:3].T)
+        #     pts3d = np.mean(pts3d,axis=1).reshape(3,1)
+        #     pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
+        #     pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
+        #     pos = pts_3d.flatten().tolist()
+        #     pos[2] *= -1
+        #     print(bbox.name, pos)
+
+        #     render.addPrimObject(RenderObject("cube", pos, rotation, scale.tolist(), rgba))
+        depth[~depth_mask] = 0
 
 
 
