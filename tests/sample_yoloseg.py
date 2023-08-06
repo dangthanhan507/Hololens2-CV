@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
 
     rotation = [0, 0, 0, 1]
-    scale = np.array([0.1,0.1,0.1])*0.5
+    scale = np.array([0.1,0.1,0.1])*0.1
     rgba = [1,1,0,1]
     detector = YoloSegment("yolov8n-seg.pt")
 
@@ -55,12 +55,14 @@ if __name__ == '__main__':
         for n in range(len(masks)):
             mask = masks[n]
             mask = cv2.resize(mask,pts3d_image.shape[:2][::-1],interpolation=cv2.INTER_AREA)
-            pts3d_mask = pts3d_image[mask > 0]
-            pts3d = pts3d_mask.reshape(3,-1)            
+            pts3d_mask = pts3d_image
+
+            pts3d = pts3d_mask.reshape(3,-1)
+            pts3d = pts3d[:,mask.flatten() > 0]
             pts3d = pts3d[:,pts3d[2,:] > 0]
-            
             pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
             pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
+            
             pts_3d = np.mean(pts_3d,axis=1).reshape(3,1)
             print(pts_3d)
 
@@ -71,31 +73,8 @@ if __name__ == '__main__':
             bbox = bboxes[n]
             rgb = bbox.drawBox(rgb)
 
-            # x0,y0 = bbox.getTL()
-            # x1,y1 = bbox.getBR()
-            # x0,y0 = int(x0), int(y0)
-            # x1,y1 = int(x1), int(y1)
-            # depth_mask[y0:y1, x0:x1] = True
             depth_mask[mask > 0] = True
-        # for bbox in bboxes:
-        #     rgb = bbox.drawBox(rgb)
 
-        #     x0,y0 = bbox.getTL()
-        #     x1,y1 = bbox.getBR()
-        #     x0,y0 = int(x0), int(y0)
-        #     x1,y1 = int(x1), int(y1)
-        #     pts3d_bbox = pts3d_image[y0:y1, x0:x1]
-        #     pts3d = pts3d_bbox.reshape(3,-1)
-        #     pts3d = pts3d[:,pts3d[2,:] > 0]
-        #     # pts3d = cv_utils.bbox_getdepth(depth, bbox, data.color_intrinsics[:3,:3].T)
-        #     pts3d = np.mean(pts3d,axis=1).reshape(3,1)
-        #     pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
-        #     pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
-        #     pos = pts_3d.flatten().tolist()
-        #     pos[2] *= -1
-        #     print(bbox.name, pos)
-
-        #     render.addPrimObject(RenderObject("cube", pos, rotation, scale.tolist(), rgba))
         depth[~depth_mask] = 0
 
 
