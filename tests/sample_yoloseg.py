@@ -34,7 +34,7 @@ def main(render, streamer):
         if data is None:
             print('Skipped')
             continue
-        # render.clear()
+        render.clear()
         data_pv = data.data_pv
         data_lt = data.data_lt
 
@@ -86,7 +86,6 @@ def main(render, streamer):
         cv2.imshow('PV',rgb)
         cv2.waitKey(1)
         time.sleep(1)
-        input('stop')
     return 0
 
 

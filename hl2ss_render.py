@@ -169,4 +169,5 @@ class Hl2ssRender:
         display_list.remove_all()
         display_list.end_display_list()
         self.ipc.push(display_list)
+        self.ipc.pull(display_list)
         self.objs = []
