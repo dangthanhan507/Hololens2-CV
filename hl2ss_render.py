@@ -120,7 +120,7 @@ class Hl2ssRender:
         while results[offset] == 1:
             offset += 1
         cmd_idxs = list(range(offset,offset+5*N,5)) # 1, 6, 11,.... listing all idx of added obj
-        print(results)
+        # print(results)
 
         object_ids = [results[idx] for idx in cmd_idxs]
         self.objs = self.objs + object_ids
