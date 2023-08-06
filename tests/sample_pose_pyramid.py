@@ -18,6 +18,11 @@ def on_press(key):
     return enable
 
 
+class Pose:
+    def __init__(self, rotm, tvec):
+        self.rot_mat = rotm
+        self.t_vec = tvec
+
 class CoordinateFrame:
     def __init__(self, offset, size):
         self.offset = offset
@@ -50,41 +55,60 @@ class CoordinateFrame:
         return [xaxis,yaxis,zaxis]
 
 class PosePendulum:
-    def __init__(self, offset):
-        self.offset = offset
+    def __init__(self, sphere_rad, bar_length):
+        self.bar_length = bar_length
+        self.sphere_rad = sphere_rad
         self.objs = None
+
+        
+        self.bar_pose    = Pose(np.eye(3), np.array([[0,0,bar_length]]).T )
+        self.sphere_pose = Pose(np.eye(3), self.bar_pose.t_vec*2 + np.array([[0,0,sphere_rad/2]]).T )
+
+        self.bar = None
+        self.sphere = None
 
     def create_render(self):
         #elongated cube with a sphere on it default points towards +x
-        size = 4*1e-1
-        pos = self.offset.copy()
-        pos[0] += size/2
-        rotation = [0,0,0,1]
-        scale = [size,1e-2,1e-2]
+        pos = self.bar_pose.t_vec.flatten().tolist()
+        rotation = R.from_matrix(self.bar_pose.rot_mat).as_quat().tolist()
+        scale = [1e-2,1e-2,self.bar_length]
         rgba = [1,1,1,1]
+        self.bar = RenderObject('cube', pos, rotation, scale, rgba)
 
-        bar = RenderObject('cube', pos, rotation, scale, rgba)
 
-        pos = self.offset.copy()
-        pos[0] += size + 1e-1/2
-        scale = [1e-1,1e-1,1e-1]
-        sphere = RenderObject('sphere', pos, rotation, scale, rgba)
+        pos = self.sphere_pose.t_vec.flatten().tolist()
+        rotation = R.from_matrix(self.sphere_pose.rot_mat).as_quat().tolist()
+        scale = [self.sphere_rad]*3
+        rgba = [1,1,1,1]
+        self.sphere = RenderObject('sphere', pos, rotation, scale, rgba)
 
-        self.objs = [bar,sphere]
+        self.objs = [self.bar,self.sphere]
         return self.objs
-    def set_rotmatrix(self, rot):
-        Rot = R.from_matrix(rot)
+    def set_pose(self, pose):
+        rot_mat = pose[:3,:3]
+        t_vec = pose[:3,-1].reshape((3,1))
 
-        rotation = Rot.as_quat()
-        rotm = Rot.as_matrix()
-        orig_pos = np.array(self.offset.copy())
+        Rot_world = rot_mat
+        t_world = t_vec
 
-        bar_opos = [size/2,0,0]
-        bar_pos = np.array((rotm @ np.array(bar_opos).reshape((3,1))).flatten() + orig_pos)
+        Rot_bar = self.bar_pose.rot_mat
+        t_bar   = self.bar_pose.t_vec
 
-        for obj in self.objs:
-            obj.rot = rotation
-            obj.pos = bar_pos
+        pos = ((Rot_world @ t_bar) + t_world).flatten().tolist()
+        rotation = R.from_matrix(Rot_world @ Rot_bar).as_quat()
+        self.bar.pos = pos
+        self.bar.rot = rotation
+
+        Rot_sphere = self.sphere_pose.rot_mat
+        t_sphere   = self.sphere_pose.t_vec
+
+        pos = ((Rot_world @ t_sphere) + t_world).flatten().tolist()
+        rotation = R.from_matrix(Rot_world @ Rot_sphere).as_quat()
+        self.sphere.pos = pos
+        self.sphere.rot = rotation
+
+        self.objs = [self.bar, self.sphere]
+
         
 
 
@@ -117,8 +141,8 @@ if __name__ == '__main__':
 
     render.addPrimObjects(cf_objs)
 
-    offset = [0,0,1]
-    pendulum = PosePendulum(offset)
+
+    pendulum = PosePendulum(1e-1,4*1e-1)
     pend_objs = pendulum.create_render()
 
     pend_ids = render.addPrimObjects(pend_objs)
@@ -132,12 +156,20 @@ if __name__ == '__main__':
         if data is None:
             print('Skipped')
             continue
-        pv_pose = data.data_pv.pose
-        print(pv_pose.T)
+        pv_pose = data.data_pv.pose.T
+        # flip_axis = np.eye(4)
+        # flip_axis[2,2] = -1
 
-        pendulum.set_rotmatrix(pv_pose.T[:3,:3])
+        pv_pose[2,-1] *= -1
+        pv_pose[0,:3] *= -1
+        pv_pose[1,:3] *= -1
+
+
+        pendulum.set_pose(pv_pose)
+
+
         render.transformObjs(pend_ids, pendulum.objs)
-        time.sleep(1)
+        # time.sleep(0.01)
 
     render.clear()
     render.stop()
