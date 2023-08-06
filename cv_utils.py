@@ -8,24 +8,8 @@
 #------------------------------------------------------------------------------
 
 import numpy as np
-from detector import BBox
+from detector import BBox, BBox3D
 
-# def rgbd_getpoints_imshape(depth, pv_intrinsics):
-#     height,width = depth.shape
-#     yy,xx = np.mgrid[:height,:width]
-
-#     fx = pv_intrinsics[0,0]
-#     fy = pv_intrinsics[1,1]
-#     c = pv_intrinsics[:3,-1].copy().reshape(3,1)
-#     c[2,0] = 0
-
-#     pts_im = np.dstack((xx,yy,np.ones(xx.shape)))
-#     pts_im = pts_im - c.T
-#     pts_im[:,:,0] /= fx
-#     pts_im[:,:,1] /= fy
-#     pts_im *= depth[:,:,np.newaxis]
-
-#     return pts_im
 def rgbd_getpoints_imshape(depth, pv_intrinsics):
     m,n = depth.shape
     pts3d = rgbd_getpoints(depth, pv_intrinsics)
@@ -132,3 +116,16 @@ def seg_getdepth(depth, seg, pv_intrinsics):
     pts3d_h = pts2d_h * depth_points
     pts3d = np.linalg.inv(pv_intrinsics) @ pts3d_h
     return pts3d
+
+
+def bbox_3d_from_pcd(pts3d, name):
+    '''
+    create 3d bounding box from set of 3d point clouds.
+    axis aligned 3d bounding box
+
+    pts3d: (3,N)
+    '''
+    min_box = pts3d.min(axis=1).flatten().tolist()
+    max_box = pts3d.max(axis=1).flatten().tolist()
+
+    return BBox3D( *(min_box + max_box + [name]) )

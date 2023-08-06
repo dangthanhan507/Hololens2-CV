@@ -118,7 +118,6 @@ class PosePyramid:
             pose: (4x4)
         '''
         self.rot_mat = pose[:3,:3]
-        self.t       = pos[:3,-1]
 
     def create_render(self):
         pass
