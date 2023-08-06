@@ -10,6 +10,38 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 
+class BBox3D:
+    def __init__(self, x0, y0, z0, x1, y1, z1, name):
+        '''
+            extension of 2d boudning box into a 3d origin axis aligned bounding box.
+            only requires two 3d points to represent it.
+
+            in 2d case:
+            -----------
+            x0,y0 = getTL()
+            x1,y1 = getBR()
+
+            x0 < x1
+            y0 < y1
+
+            in 3d case we wish to have the same inequalities:
+            =================================================
+            x0,y0,z0 = getTL()
+            x1,y1,z1 = getBR()
+        '''
+        self.x0 = x0
+        self.y0 = y0
+        self.z0 = z0
+
+        self.x1 = x1
+        self.y1 = y1
+        self.z1 = z1
+
+    def getTL(self):
+        return (self.x0, self.y0, self.z0)
+    def getBR(self):
+        return (self.x1, self.y1, self.z1)
+
 '''
 Custom Bounding Box Class:
 --------------------------
@@ -169,23 +201,24 @@ class YoloSegment:
         box_ret = []
         mask_ret = []
         for result in results:
-            (N,H,W) = result.masks.data.shape
-            for n in range(N):
-                mask = result.masks.data[n,:,:]
+            if result.masks is not None:
+                (N,H,W) = result.masks.data.shape
+                for n in range(N):
+                    mask = result.masks.data[n,:,:]
 
-                box = result.boxes[n]
-                xyxy = box.xyxy[0] # top left, bot right
-                c = box.cls #class index
+                    box = result.boxes[n]
+                    xyxy = box.xyxy[0] # top left, bot right
+                    c = box.cls #class index
 
-                #use class index to access name in models
-                name = self.model.names[int(c)]
+                    #use class index to access name in models
+                    name = self.model.names[int(c)]
 
-                #if we decide to filter boxes for a specific kind of class
-                if len(filter_cls) > 0:
-                    if name in filter_cls:
+                    #if we decide to filter boxes for a specific kind of class
+                    if len(filter_cls) > 0:
+                        if name in filter_cls:
+                            box_ret.append(BBox(xyxy[0],xyxy[1],xyxy[2],xyxy[3],name))
+                            mask_ret.append(mask.cpu().numpy())
+                    else:
                         box_ret.append(BBox(xyxy[0],xyxy[1],xyxy[2],xyxy[3],name))
                         mask_ret.append(mask.cpu().numpy())
-                else:
-                    box_ret.append(BBox(xyxy[0],xyxy[1],xyxy[2],xyxy[3],name))
-                    mask_ret.append(mask.cpu().numpy())
         return mask_ret, box_ret

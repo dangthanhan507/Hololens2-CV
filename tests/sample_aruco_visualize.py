@@ -86,7 +86,7 @@ if __name__ == '__main__':
         cv2.imshow('RGB',rgb)
         cv2.imshow('D',depth)
         cv2.waitKey(1)
-        time.sleep(1)
+        time.sleep(5)
         
 
     

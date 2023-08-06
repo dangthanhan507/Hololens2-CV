@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
 
     rotation = [0, 0, 0, 1]
-    scale = np.array([0.1,0.1,0.1])*0.1
+    scale = np.array([0.1,0.1,0.1])*0.5
     rgba = [1,1,0,1]
     detector = YoloSegment("yolov8n-seg.pt")
 
@@ -64,7 +64,6 @@ if __name__ == '__main__':
             pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
             
             pts_3d = np.mean(pts_3d,axis=1).reshape(3,1)
-            print(pts_3d)
 
             pos = pts_3d.flatten().tolist()
             pos[2] *= -1

@@ -2,7 +2,7 @@ import sys
 ROOT_PATH = "/home/andang/workspace/CV_Lab/Hololens2-CV-Server/"
 sys.path.append(ROOT_PATH)
 
-from hl2ss_render import Hl2ssRender
+from hl2ss_render import Hl2ssRender, RenderObject
 from pynput import keyboard
 import time
 
@@ -24,10 +24,11 @@ if __name__ == '__main__':
 
     pos = [0.0,0.0,0.1]
     rotation = [0, 0, 0, 1]
-    scale = [0.1,0.1,0.1]
+    scale = [0.1,1,0.1]
     rgba = [1,1,1,1]
     while enable:
-        render.addPrimObject("sphere", pos, rotation, scale, rgba)
+
+        render.addPrimObject(RenderObject("plane", pos, rotation, scale, rgba))
         pos[0] += 1
         time.sleep(1)
         print(render.objs)

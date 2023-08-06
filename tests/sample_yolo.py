@@ -57,7 +57,7 @@ if __name__ == '__main__':
             x1,y1 = bbox.getBR()
             x0,y0 = int(x0), int(y0)
             x1,y1 = int(x1), int(y1)
-            pts3d_bbox = pts3d_image[y0:y1, x0:x1]
+            pts3d_bbox = pts3d_image[y0:y1, x0:x1, :]
             pts3d = pts3d_bbox.reshape(3,-1)
             pts3d = pts3d[:,pts3d[2,:] > 0]
             # pts3d = cv_utils.bbox_getdepth(depth, bbox, data.color_intrinsics[:3,:3].T)

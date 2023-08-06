@@ -3,11 +3,12 @@ ROOT_PATH = "/home/andang/workspace/CV_Lab/Hololens2-CV-Server/"
 sys.path.append(ROOT_PATH)
 
 from hl2ss_stream import Hl2ssStreamWrapper, Hl2ssData
-from hl2ss_render import Hl2ssRender
+from hl2ss_render import Hl2ssRender, RenderObject
 from hl2ss_utils import Hl2ssDepthProcessor
 from pynput import keyboard
 import cv2
 from cv_utils import rgbd_getpoints
+import cv_utils
 import numpy as np
 import time
 
@@ -57,20 +58,30 @@ if __name__ == '__main__':
 
 
         # (3xN)
-        pts3d = rgbd_getpoints(depth, data.color_intrinsics[:3,:3].T)
-        pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
+        # pts3d = rgbd_getpoints(depth, data.color_intrinsics[:3,:3].T)
+        # pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
 
+        # pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
+        # # reverse Z direction for visualizing
+        # for n in range(pts_3d.shape[1]):
+        #     pos = pts_3d[:3,n].tolist()
+        #     pos[2] *= -1
+        #     render.addPrimObject("sphere", pos, rotation, scale.tolist(), rgba)
+
+        pts3d_image = cv_utils.rgbd_getpoints_imshape(depth, data.color_intrinsics[:3,:3].T)
+        
+        pts3d = pts3d_image.reshape(3,-1)
+        pts3d = pts3d[:,pts3d[2,:] > 0]
+        pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
         pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
 
-        # reverse Z direction for visualizing
-        for n in range(pts_3d.shape[1]):
+        print('Starting visualization')
+        for n in range(0,pts3d.shape[1],20):
             pos = pts_3d[:3,n].tolist()
             pos[2] *= -1
-            render.addPrimObject("sphere", pos, rotation, scale.tolist(), rgba)
+            render.addPrimObject(RenderObject("sphere", pos, rotation, scale.tolist(), rgba))
 
-        cv2.imshow('D',depth)
-        cv2.imshow('PV',rgb)
-        cv2.waitKey(1)
+
         time.sleep(1)
 
     streamer.stop()
