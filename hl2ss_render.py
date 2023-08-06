@@ -72,6 +72,23 @@ class Hl2ssRender:
 
         self.objs.append(results[1])
         return results[1]
+    def addPrimObject(self, render_object):
+        display_list = hl2ss_rus.command_buffer()
+        display_list.begin_display_list()
+
+        #create obj
+        display_list.create_primitive(render_object.object)
+        display_list.set_target_mode(hl2ss_rus.TargetMode.UseLast)
+        display_list.set_world_transform(0, render_object.pos, render_object.rot, render_object.scale)
+        display_list.set_color(0, render_object.rgba)
+        display_list.set_active(0, hl2ss_rus.ActiveState.Active)
+        display_list.set_target_mode(hl2ss_rus.TargetMode.UseID) # Restore target mode
+        display_list.end_display_list()
+        self.ipc.push(display_list)
+        results = self.ipc.pull(display_list)
+
+        self.objs.append(results[1])
+        return results[1]
     
     def addPrimObjects(self, render_objects):
         '''
@@ -81,7 +98,6 @@ class Hl2ssRender:
         display_list.begin_display_list() #cmd 0
 
         N = len(render_objects)
-        cmd_idxs = list(range(min(N,4),min(N,4)+5*N,5)) # 1, 6, 11,.... listing all idx of added obj
         for i in range(len(render_objects)):
             render_obj = render_objects[i]
             pos = render_obj.pos
@@ -100,6 +116,10 @@ class Hl2ssRender:
         self.ipc.push(display_list)
         results = self.ipc.pull(display_list)
 
+        offset = 0
+        while results[offset] == 1:
+            offset += 1
+        cmd_idxs = list(range(offset,offset+5*N,5)) # 1, 6, 11,.... listing all idx of added obj
         print(results)
 
         object_ids = [results[idx] for idx in cmd_idxs]
