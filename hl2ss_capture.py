@@ -16,10 +16,11 @@ import hl2ss_mp
 import hl2ss_utilities
 
 import hl2ss_stream
+from hl2ss_map import Hl2ssMapping
+import open3d as o3d
 
-
-host = '192.168.1.227'
-path = './test_mot/'
+host = hl2ss_stream.HOST_IP
+path = './offline_folder/'
 unpack = True
 
 os.makedirs(path,exist_ok=True)
@@ -71,6 +72,15 @@ buffer_elements = 300
 
 
 if __name__ == '__main__':
+
+    print('Getting 3D reconstruction first')
+    mapping = Hl2ssMapping()
+    mapping.observe_map()
+    meshes = mapping.get_o3d_mesh()
+    o3d.visualization.draw_geometries(meshes, mesh_show_back_face=True)
+
+
+    print('Setting up Streaming Software Now Stream')
     # Keyboard events ---------------------------------------------------------
     start_event = threading.Event()
     stop_event = threading.Event()
