@@ -1,7 +1,7 @@
 #setup imports for hl2ss
 import sys
 import os
-sys.path.append(os.path.join(os.getcwd(),'hl2ss_lib/viewer'))
+sys.path.append(os.path.join(os.getcwd(),'./hl2ss/viewer'))
 
 import threading
 
@@ -15,6 +15,8 @@ import hl2ss_io
 import hl2ss_mp
 import hl2ss_utilities
 
+import hl2ss_stream
+
 
 host = '192.168.1.227'
 path = './test_mot/'
@@ -27,7 +29,6 @@ ports = [
     hl2ss.StreamPort.RM_VLC_LEFTLEFT,
     hl2ss.StreamPort.RM_VLC_RIGHTFRONT,
     hl2ss.StreamPort.RM_VLC_RIGHTRIGHT,
-    #hl2ss.StreamPort.RM_DEPTH_AHAT,
     hl2ss.StreamPort.RM_DEPTH_LONGTHROW,
     hl2ss.StreamPort.RM_IMU_ACCELEROMETER,
     hl2ss.StreamPort.RM_IMU_GYROSCOPE,
@@ -40,13 +41,8 @@ ports = [
 
 # RM VLC parameters
 vlc_mode    = hl2ss.StreamMode.MODE_1
-vlc_profile = hl2ss.VideoProfile.H265_MAIN
-vlc_bitrate = 1*1024*1024
-
-# RM Depth AHAT parameters
-ahat_mode    = hl2ss.StreamMode.MODE_1
-ahat_profile = hl2ss.VideoProfile.H265_MAIN
-ahat_bitrate = 8*1024*1024
+vlc_profile = hl2ss_stream.VLC_PROFILE
+vlc_bitrate = hl2ss_stream.VLC_BITRATE
 
 # RM Depth Long Throw parameters
 lt_mode   = hl2ss.StreamMode.MODE_1
@@ -58,11 +54,11 @@ imu_mode = hl2ss.StreamMode.MODE_1
 #NOTE: for PV params lets be more conservative (don't use 1920x1080 or 60fps)
 # PV parameters
 pv_mode      = hl2ss.StreamMode.MODE_1
-pv_width     = 424
-pv_height    = 240
-pv_framerate = 15
-pv_profile   = hl2ss.VideoProfile.H265_MAIN
-pv_bitrate   = hl2ss.get_video_codec_bitrate(pv_width, pv_height, pv_framerate, hl2ss.get_video_codec_default_factor(pv_profile))
+pv_width     = hl2ss_stream.PV_WIDTH
+pv_height    = hl2ss_stream.PV_HEIGHT
+pv_framerate = hl2ss_stream.PV_FPS
+pv_profile   = hl2ss_stream.PV_PROFILE
+pv_bitrate   = hl2ss_stream.PV_BITRATE
 
 # Microphone parameters
 microphone_profile = hl2ss.AudioProfile.AAC_24000
@@ -75,14 +71,6 @@ buffer_elements = 300
 
 
 if __name__ == '__main__':
-    if ((hl2ss.StreamPort.PERSONAL_VIDEO in ports) and (hl2ss.StreamPort.RM_DEPTH_AHAT in ports)):
-        print('Error: Simultaneous PV and RM Depth AHAT streaming is not supported. See known issues at https://github.com/jdibenes/hl2ss.')
-        quit()
-
-    if ((hl2ss.StreamPort.RM_DEPTH_LONGTHROW in ports) and (hl2ss.StreamPort.RM_DEPTH_AHAT in ports)):
-        print('Error: Simultaneous RM Depth Long Throw and RM Depth AHAT streaming is not supported. See known issues at https://github.com/jdibenes/hl2ss.')
-        quit()
-
     # Keyboard events ---------------------------------------------------------
     start_event = threading.Event()
     stop_event = threading.Event()
@@ -111,12 +99,11 @@ if __name__ == '__main__':
     producer.configure_rm_vlc(False, host, hl2ss.StreamPort.RM_VLC_LEFTLEFT, hl2ss.ChunkSize.RM_VLC, vlc_mode, vlc_profile, vlc_bitrate)
     producer.configure_rm_vlc(False, host, hl2ss.StreamPort.RM_VLC_RIGHTFRONT, hl2ss.ChunkSize.RM_VLC, vlc_mode, vlc_profile, vlc_bitrate)
     producer.configure_rm_vlc(False, host, hl2ss.StreamPort.RM_VLC_RIGHTRIGHT, hl2ss.ChunkSize.RM_VLC, vlc_mode, vlc_profile, vlc_bitrate)
-    producer.configure_rm_depth_ahat(False, host, hl2ss.StreamPort.RM_DEPTH_AHAT, hl2ss.ChunkSize.RM_DEPTH_AHAT, ahat_mode, ahat_profile, ahat_bitrate)
     producer.configure_rm_depth_longthrow(False, host, hl2ss.StreamPort.RM_DEPTH_LONGTHROW, hl2ss.ChunkSize.RM_DEPTH_LONGTHROW, lt_mode, lt_filter)
     producer.configure_rm_imu(host, hl2ss.StreamPort.RM_IMU_ACCELEROMETER, hl2ss.ChunkSize.RM_IMU_ACCELEROMETER, imu_mode)
     producer.configure_rm_imu(host, hl2ss.StreamPort.RM_IMU_GYROSCOPE, hl2ss.ChunkSize.RM_IMU_GYROSCOPE, imu_mode)
     producer.configure_rm_imu(host, hl2ss.StreamPort.RM_IMU_MAGNETOMETER, hl2ss.ChunkSize.RM_IMU_MAGNETOMETER, imu_mode)
-    producer.configure_pv(False, host, hl2ss.StreamPort.PERSONAL_VIDEO, hl2ss.ChunkSize.PERSONAL_VIDEO, pv_mode, pv_width, pv_height, pv_framerate, pv_profile, pv_bitrate, None)
+    producer.configure_pv(False, host, hl2ss.StreamPort.PERSONAL_VIDEO, hl2ss.ChunkSize.PERSONAL_VIDEO, pv_mode, pv_width, pv_height, pv_framerate, pv_profile, pv_bitrate, 'rgb24')
     producer.configure_microphone(False, host, hl2ss.StreamPort.MICROPHONE, hl2ss.ChunkSize.MICROPHONE, microphone_profile)
     producer.configure_si(host, hl2ss.StreamPort.SPATIAL_INPUT, hl2ss.ChunkSize.SPATIAL_INPUT)
     producer.configure_eet(host, hl2ss.StreamPort.EXTENDED_EYE_TRACKER, hl2ss.ChunkSize.EXTENDED_EYE_TRACKER, eet_fps)
@@ -173,8 +160,7 @@ if __name__ == '__main__':
         hl2ss.StreamPort.RM_VLC_LEFTFRONT,
         hl2ss.StreamPort.RM_VLC_LEFTLEFT,
         hl2ss.StreamPort.RM_VLC_RIGHTFRONT,
-        hl2ss.StreamPort.RM_VLC_RIGHTRIGHT,
-        hl2ss.StreamPort.RM_DEPTH_AHAT,        
+        hl2ss.StreamPort.RM_VLC_RIGHTRIGHT   
     ]
 
     mp4_input_filenames = [filenames[port] for port in ports_to_mp4 if (port in ports)]

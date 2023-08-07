@@ -4,11 +4,12 @@ import os
 sys.path.append(os.path.join(os.getcwd(),'./hl2ss/viewer'))
 
 from hl2ss_stream import Hl2ssData
-import cv2
+
 import hl2ss
 import hl2ss_io
+
 import hl2ss_3dcv
-import hl2ss_utilities
+
 import os
 
 import numpy as np
