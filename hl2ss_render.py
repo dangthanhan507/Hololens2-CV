@@ -29,9 +29,11 @@ def getObjectType(object):
         return hl2ss_rus.PrimitiveType.Plane
     elif object == "quad":
         return hl2ss_rus.PrimitiveType.Quad
+    elif object == 'text':
+        return 'text'
 
 class RenderObject:
-    def __init__(self, object, pos ,rot, scale, rgba):
+    def __init__(self, object, pos ,rot, scale, rgba, text="", font_size=0.1):
         '''
             pos: list size 3 [x,y,z]
             rot: quaternion list size 4 [x,y,z,w]
@@ -43,6 +45,9 @@ class RenderObject:
         self.rot = rot #quaternion
         self.scale = scale
         self.rgba = rgba
+
+        self.text = text
+        self.font_size = font_size
 
 #NOTE: look at hl2ss_rus for primitives
 #NOTE: plane primitive has issues
@@ -56,32 +61,41 @@ class Hl2ssRender:
     def stop(self):
         self.ipc.close()
 
-    def addPrimObject(self, object, pos, rot, scale, rgba):
-        display_list = hl2ss_rus.command_buffer()
-        display_list.begin_display_list()
+    # def addPrimObject(self, object, pos, rot, scale, rgba):
+    #     display_list = hl2ss_rus.command_buffer()
+    #     display_list.begin_display_list()
 
-        #create obj
-        display_list.create_primitive(getObjectType(object))
-        display_list.set_target_mode(hl2ss_rus.TargetMode.UseLast)
-        display_list.set_world_transform(0, pos, rot, scale)
-        display_list.set_color(0, rgba)
-        display_list.set_active(0, hl2ss_rus.ActiveState.Active)
-        display_list.set_target_mode(hl2ss_rus.TargetMode.UseID) # Restore target mode
-        display_list.end_display_list()
-        self.ipc.push(display_list)
-        results = self.ipc.pull(display_list)
+    #     #create obj
+    #     display_list.create_primitive(getObjectType(object))
+    #     display_list.set_target_mode(hl2ss_rus.TargetMode.UseLast)
+    #     display_list.set_world_transform(0, pos, rot, scale)
+    #     display_list.set_color(0, rgba)
+    #     display_list.set_active(0, hl2ss_rus.ActiveState.Active)
+    #     display_list.set_target_mode(hl2ss_rus.TargetMode.UseID) # Restore target mode
+    #     display_list.end_display_list()
+    #     self.ipc.push(display_list)
+    #     results = self.ipc.pull(display_list)
 
-        self.objs.append(results[1])
-        return results[1]
+    #     self.objs.append(results[1])
+    #     return results[1]
     def addPrimObject(self, render_object):
         display_list = hl2ss_rus.command_buffer()
         display_list.begin_display_list()
 
         #create obj
-        display_list.create_primitive(render_object.object)
+        if render_object.object == 'text':
+            display_list.create_text()
+        else:    
+            display_list.create_primitive(render_object.object)
+        
         display_list.set_target_mode(hl2ss_rus.TargetMode.UseLast)
+
+        if render_object.object == 'text':
+            display_list.set_text(0, render_object.font_size, render_object.rgba, render_object.text) # Set text
+        else:
+            display_list.set_color(0, render_object.rgba)
+        
         display_list.set_world_transform(0, render_object.pos, render_object.rot, render_object.scale)
-        display_list.set_color(0, render_object.rgba)
         display_list.set_active(0, hl2ss_rus.ActiveState.Active)
         display_list.set_target_mode(hl2ss_rus.TargetMode.UseID) # Restore target mode
         display_list.end_display_list()
@@ -107,11 +121,21 @@ class Hl2ssRender:
             rgba = render_obj.rgba
             objType = render_obj.object
 
-            display_list.create_primitive(objType) # cmd 1 + 5*i
+            if objType == 'text':
+                display_list.create_text()
+            else:
+                display_list.create_primitive(objType) # cmd 1 + 5*i
+
             display_list.set_target_mode(hl2ss_rus.TargetMode.UseLast)
+            if objType == 'text':
+                display_list.set_text(0, render_obj.font_size, rgba, render_obj.text) # Set text
+            else:
+                display_list.set_color(0, rgba)
+            
             display_list.set_world_transform(0, pos, rot, scale)
-            display_list.set_color(0, rgba)
             display_list.set_active(0, hl2ss_rus.ActiveState.Active)
+
+
         display_list.set_target_mode(hl2ss_rus.TargetMode.UseID) # Restore target mode
         display_list.end_display_list()
         self.ipc.push(display_list)
