@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from detector import BBox
+from detector import BBox, BBox3D
 
 
 class KalmanFilter:
@@ -41,6 +41,7 @@ class KalmanFilter:
         thick = int((height+width)//900)
         cv2.rectangle(image, (int(bbox.x0),int(bbox.y0)), (int(bbox.x1),int(bbox.y1)), (255,0,0))
         cv2.putText(image, bbox.name, (int(bbox.x0),int(bbox.y0)-12), 0, 1e-3*height, (255,0,0), thick//3)
+        print(f"drawing state: {(int(bbox.x0),int(bbox.y0)), (int(bbox.x1),int(bbox.y1))}")
         return image
 
     def getAllCorners(self):
@@ -50,19 +51,19 @@ class KalmanFilter:
     def state_to_bbox(self, state):
         cx = state[0,0]
         cy = state[1,0]
-        s  = state[2,0]
-        r  = state[3,0]
-        
-        w  = r*s
-        h  = w/r
+        cz = state[2,0]
+        l = state[3,0]
+        w = state[4,0]
+        h = state[5,0]
         
         xTL = cx - w/2
         xBR = cx + w/2
+        yTL = cy - l/2
+        yBR = cy + l/2
+        zTL = cz - h/2
+        zBR = cz + h/2
 
-        yTL = cy - h/2
-        yBR = cy + h/2
-
-        return BBox(xTL,yTL,xBR,yBR,'unknown')
+        return BBox3D(xTL, yTL, zTL, xBR, yBR, zBR, name="bbox")
 
 class TrackerObj(KalmanFilter):
     def __init__(self, A, C, Q, R, obj_id=0, age=0, is_matched_before=False):
@@ -76,9 +77,8 @@ class MultiObjectTracker:
         self.objs = []
         self.conf = 0.95 
 
-        self.gate_matrix_thresh1 = 500
+        self.gate_matrix_thresh1 = 10 
         self.gate_matrix_thresh2 = 0.85
-        self.MAX_AGE = 30
 
     def initialize_object(self, bbox):
         '''
@@ -96,21 +96,28 @@ class MultiObjectTracker:
             None 
         '''
         track_vector = self.bbox_to_state(bbox)
-        track_cov    = np.eye(8)
+        track_cov    = np.eye(10)
         
         #assign id
         id_ = self.id_ctr
         self.id_ctr += 1
         
-        A = np.eye(8)
         #first 3 rows, last 3 column
-        A[:4,4:] = np.eye(4)
+        # A = np.eye(8)
+        # A[:4,4:] = np.eye(4)
+        A = np.eye(10)
+        A[:5, 5:] = np.eye(5)
         
-        obj = TrackerObj(A=A, C=np.eye(8), Q=np.eye(8), R=1e-3*np.eye(8),obj_id=id_)
+        obj = TrackerObj(A=A, C=np.eye(10), Q=np.eye(10), R=1e-3*np.eye(10),obj_id=id_)
         obj.initialize(track_vector, track_cov)
         self.objs.append(obj)
 
-    def track_boxes(self, bboxes, mode="2d"):
+    def drawTracks(self, image):
+        for obj in self.objs:
+            image = obj.drawState(image)
+        return image
+
+    def track_boxes(self, bboxes):
         '''
         Description:
         ------------
@@ -127,13 +134,15 @@ class MultiObjectTracker:
         --------
             None
         '''
+        print("------------------")
+        print("Num of current objs:", len(self.objs))
         #predict obj phase
         for obj in self.objs:
             obj.predict()        
         
         #associate
-        obj_matched, det_matched = self.match_track_and_detections(
-                bboxes, self._mahalanobis_dist_2d if mode == "2d" else self._mahalanobis_dist_3d)
+        obj_matched, det_matched = self.match_tracks_and_detections(bboxes)
+        print("Number of tracks matched:", len(obj_matched))
 
         #any unmatched, just leave out....
         #perform update step 
@@ -156,7 +165,7 @@ class MultiObjectTracker:
             if i not in det_matched:
                 self.initialize_object(bboxes[i])
 
-    def match_track_and_detections(self, bboxes, mh_dist):
+    def match_tracks_and_detections(self, bboxes):
         predicted_boxes = []
         for obj in self.objs:
             bbox = obj.state_to_bbox(obj.state)
@@ -167,10 +176,16 @@ class MultiObjectTracker:
         cost_matrix = np.zeros((m,n))
         for pred_idx in range(m):
             for meas_idx in range(n):
-                cost_matrix[pred_idx,meas_idx] = mh_dist(
+                cost_matrix[pred_idx,meas_idx] = self._mahalanobis_dist_3d(
                         self.bbox_to_state(predicted_boxes[pred_idx]), 
                         self.bbox_to_state(bboxes[meas_idx]),
                         self.objs[pred_idx])
+                e_dist = ((predicted_boxes[pred_idx].getAll() - bboxes[meas_idx].getAll()) ** 2).sum()
+                if e_dist < 50:
+                    print("| Could be plausible match, m dist. is", cost_matrix[pred_idx, meas_idx], "|")
+                    print(f"| Pred: {predicted_boxes[pred_idx].getAll()}  |")
+                    print(f"| Detected: {bboxes[meas_idx].getAll()}  |")
+
         
         row_ind, col_ind = linear_sum_assignment(-cost_matrix)
         obj_matched = []
@@ -178,16 +193,11 @@ class MultiObjectTracker:
         for i in range(len(row_ind)):
             obj_idx = row_ind[i]
             det_idx = col_ind[i]
-            if cost_matrix[obj_idx,det_idx] >= self.gate_matrix_thresh1:
+            if cost_matrix[obj_idx,det_idx] <= self.gate_matrix_thresh1:
                 obj_matched.append(obj_idx)
                 det_matched.append(det_idx)
 
         return obj_matched, det_matched
-
-    def _mahalanobis_dist_2d(self, tracks_state, detected_state, obj):
-        S = (obj.C.T @ obj.cov @ obj.C + obj.R)[0:4,0:4]
-        mh = ((detected_state - tracks_state).T @ np.linalg.inv(S) @ (detected_state - tracks_state))[0,0]
-        return mh
 
     def _mahalanobis_dist_3d(self, tracks_state, detected_state, obj):
         S = (obj.C.T @ obj.cov @ obj.C + obj.R)#[0:4,0:4]
@@ -195,17 +205,18 @@ class MultiObjectTracker:
         return mh
 
     def bbox_to_state(self, bbox):
-        xTL, yTL = bbox.getTL()
-        xBR, yBR = bbox.getBR()
+        xTL, yTL, zTL = bbox.getTL()
+        xBR, yBR, zBR = bbox.getBR()
         
         cx = (xTL + xBR) / 2
         cy = (yTL + yBR) / 2
+        cz = (zTL + zBR) / 2
+        l = yBR - yTL
+        w = xBR - xTL
+        h = zBR - zTL
         
-        r = (xBR - xTL) / (yBR - yTL)
-        s = (yBR - yTL)
-        
-        return np.array([[cx,cy,s,r,0,0,0,0]]).T
+        return np.array([[cx,cy,cz,l,w,h,0,0,0,0]]).T
 
     def calc_velocity(self, curr_state, prev_state):
-        vel = curr_state[:4] - prev_state[:4]
+        vel = curr_state[:6] - prev_state[:6]
         return vel

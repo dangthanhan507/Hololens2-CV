@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 
+
 class BBox3D:
     def __init__(self, x0, y0, z0, x1, y1, z1, name):
         '''
@@ -41,6 +42,8 @@ class BBox3D:
         return (self.x0, self.y0, self.z0)
     def getBR(self):
         return (self.x1, self.y1, self.z1)
+    def getAll(self):
+        return np.array([self.x0, self.y0, self.z0, self.x1, self.y1, self.z1])
 
 '''
 Custom Bounding Box Class:
