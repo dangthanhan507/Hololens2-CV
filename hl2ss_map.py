@@ -10,7 +10,7 @@ import numpy as np
 import open3d as o3d
 
 # mesh setting
-TPCM = 1000 # Triangles per cubic meter
+TPCM = 1_000 # Triangles per cubic meter
 VPF = hl2ss.SM_VertexPositionFormat.R32G32B32A32Float
 TIF = hl2ss.SM_TriangleIndexFormat.R32Uint
 VNF = hl2ss.SM_VertexNormalFormat.R32G32B32A32Float
@@ -28,21 +28,24 @@ class Hl2ssMapping:
 
 
     def observe_map(self):
-        self.sm_manager.open()
         sm_origin = [0, 0, 0] # Origin of sampling volume
         sm_radius = 100 # Radius of sampling volume 
         sm_volumes = hl2ss.sm_bounding_volume()
         sm_volumes.add_sphere(sm_origin, sm_radius)
+
+        self.sm_manager.open()
         self.sm_manager.set_volumes(sm_volumes)
         self.sm_manager.get_observed_surfaces()
         self.sm_manager.close()
 
+        self.meshes = self.sm_manager.get_meshes()
+
     def get_o3d_mesh(self):
-        meshes = self.sm_manager.get_meshes()
+        # meshes = self.sm_manager.get_meshes()
+        meshes = self.meshes
 
         o3d_mesh = o3d.geometry.TriangleMesh()
         for mesh in meshes:
-            hl2ss_3dcv.sm_mesh_normalize(mesh)
             open3d_mesh = hl2ss_3dcv.sm_mesh_to_open3d_triangle_mesh(mesh)
             open3d_mesh.vertex_colors = open3d_mesh.vertex_normals
 

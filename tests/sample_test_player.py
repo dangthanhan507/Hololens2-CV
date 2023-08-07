@@ -23,10 +23,10 @@ if __name__ == '__main__':
     listener.start()
 
     mapper = Hl2ssMapping(download=False)
-    o3d_mesh = mapper.load_map('./offline_folder/offline_script4/map.obj.obj')
+    o3d_mesh = mapper.load_map('./offline_folder/offline_script2/map.obj')
     o3d.visualization.draw_geometries([o3d_mesh], mesh_show_back_face=True)
 
-    player = Hl2ssOfflineStreamer('./offline_folder/offline_script4',{})
+    player = Hl2ssOfflineStreamer('./offline_folder/offline_script2',{})
     player.open()
 
     sensor_stack = HololensSensorStack()
