@@ -78,6 +78,9 @@ class Hl2ssOfflineStreamer:
             
             if (data_lf is None or data_rf is None):
                 return None
+        else:
+            data_lf = None
+            data_rf = None
 
         self.pv_intrinsics = hl2ss.update_pv_intrinsics(self.pv_intrinsics, data_pv.payload.focal_length, data_pv.payload.principal_point)
         color_intrinsics, color_extrinsics = hl2ss_3dcv.pv_fix_calibration(self.pv_intrinsics, self.pv_extrinsics)

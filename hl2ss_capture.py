@@ -20,10 +20,15 @@ from hl2ss_map import Hl2ssMapping
 import open3d as o3d
 
 host = hl2ss_stream.HOST_IP
-path = './offline_folder/'
-unpack = True
 
+
+folder = './offline_folder/'
+os.makedirs(folder,exist_ok=True)
+subfolder = f'./offline_script{len(os.listdir(folder))}/'
+path = os.path.join(folder,subfolder)
 os.makedirs(path,exist_ok=True)
+
+unpack = True
 #can only use one depth format at a time (ahat or longthrow)
 ports = [
     hl2ss.StreamPort.RM_VLC_LEFTFRONT,
