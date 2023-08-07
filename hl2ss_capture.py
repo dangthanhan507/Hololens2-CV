@@ -83,6 +83,7 @@ if __name__ == '__main__':
     mapping.observe_map()
     meshes = mapping.get_o3d_mesh()
     o3d.visualization.draw_geometries(meshes, mesh_show_back_face=True)
+    mapping.save_map(meshes[0], path, 'map')
 
 
     print('Setting up Streaming Software Now Stream')
