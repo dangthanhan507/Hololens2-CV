@@ -70,7 +70,6 @@ if __name__ == '__main__':
 
         print("Num of bboxes:", len(bboxes))
         mot.track_boxes(bboxes)
-        mot.drawTracks(rgb)
 
         cv2.imshow('D',depth)
         cv2.imshow('PV',rgb)
