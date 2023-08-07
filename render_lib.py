@@ -16,10 +16,13 @@ class Pose:
         self.t_vec = tvec
 
 def pose2render(pose, scale, rgba, type):
-    
     pos = pose.t_vec.flatten().tolist()
     pos[2] *= -1
-    rot = Rotation.from_matrix(pose.rot_mat).as_quat()
+    rot_mat = pose.rot_mat.copy()
+    rot_mat[0,:3] *= -1
+    rot_mat[1,:3] *= -1
+
+    rot = Rotation.from_matrix(rot_mat).as_quat()
     return RenderObject(type, pos, rot, scale, rgba)
 
 def setMultiObjectPose(objs,objs_pose, world_pose):
@@ -36,6 +39,35 @@ def setMultiObjectPose(objs,objs_pose, world_pose):
         objs[i] = pose2render(pose,objs[i].scale, objs[i].rgba, objs[i].object)
     
     return objs
+
+class ClassDisplayWindow:
+    def __init__(self, bbox3d):
+        x0,y0,z0 = bbox3d.getTL()
+        x1,y1,z1 = bbox3d.getBR()
+
+        cx = (x0+x1)/2
+        cy = (y0+y1)/2
+        cz = (z0+z1)/2
+        center = np.array([[cx,cy,cz]]).T
+
+        w = (x1-x0)
+        l = (y1-y0)
+        h = (z1-z0)
+
+        #WINDOW
+        rotz = Rotation.from_rotvec(np.array([0,0,np.pi/2])).as_matrix()
+        self.window = Pose(rotz, center + np.array([[0,l,0]]).T)
+
+        self.objs_pose = [self.window]
+
+    def create_render(self):
+        self.objs = []
+        scale = [0.1,0.15,1e-3]
+        rgba = [80/255,80/255,140/255,1]
+        self.objs.append(pose2render(self.window, scale, rgba, 'capsule'))
+
+        return self.objs
+
 
 class RenderBBox:
     def __init__(self, bbox3d, thickness=1e-1, rgba = [1,1,1,1]):
@@ -94,6 +126,8 @@ class RenderBBox:
 
     def create_render(self):
         self.objs = []
+
+
 
         scale = [self.thickness,self.thickness,self.h]
         self.objs.append( pose2render(self.bot0, scale, self.rgba, 'cube') )

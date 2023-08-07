@@ -24,7 +24,7 @@ def main(render, streamer):
     depth_processor = Hl2ssDepthProcessor(streamer.calib_lt)
 
     rotation = [0, 0, 0, 1]
-    scale = np.array([0.1,0.1,0.1])*0.5
+    scale = np.array([0.1,0.1,0.1])*0.8
     rgba = [1,1,0,1]
     detector = YoloSegment("yolov8n-seg.pt")
 
@@ -69,7 +69,7 @@ def main(render, streamer):
 
             pos = pts_3d.flatten().tolist()
             pos[2] *= -1
-            render.addPrimObject(RenderObject("cube", pos, rotation, scale.tolist(), rgba))
+            render.addPrimObject(RenderObject("sphere", pos, rotation, scale.tolist(), rgba))
 
             bbox = bboxes[n]
             rgb = bbox.drawBox(rgb)
