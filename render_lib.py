@@ -41,7 +41,7 @@ def setMultiObjectPose(objs,objs_pose, world_pose):
     return objs
 
 class ClassDisplayWindow:
-    def __init__(self, bbox3d):
+    def __init__(self, bbox3d, text="Default"):
         x0,y0,z0 = bbox3d.getTL()
         x1,y1,z1 = bbox3d.getBR()
 
@@ -58,13 +58,24 @@ class ClassDisplayWindow:
         rotz = Rotation.from_rotvec(np.array([0,0,np.pi/2])).as_matrix()
         self.window = Pose(rotz, center + np.array([[0,l,0]]).T)
 
-        self.objs_pose = [self.window]
+        rot = Rotation.from_rotvec(np.array([np.pi,0,0])).as_matrix()
+        self.text   = Pose(rot, center + np.array([[0,l,-1e-2]]).T)
+        self.str = text
+
+        self.objs_pose = [self.window, self.text]
 
     def create_render(self):
         self.objs = []
-        scale = [0.1,0.15,1e-3]
+        scale = [0.1,0.12,1e-3]
         rgba = [80/255,80/255,140/255,1]
         self.objs.append(pose2render(self.window, scale, rgba, 'capsule'))
+
+        scale = [1,1,1]
+        rgba = [1,1,1,1]
+        obj = pose2render(self.text, scale, rgba, 'text')
+        obj.text = self.str
+        obj.font_size = 0.1
+        self.objs.append(obj)
 
         return self.objs
 

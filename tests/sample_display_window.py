@@ -36,6 +36,8 @@ def main(render, streamer):
     window_objs = window.create_render()
     window_ids = render.addPrimObjects(window_objs)
 
+    print(window_objs)
+
     while enable:
         streamer.waitReady()
         data = streamer.getData()
@@ -48,7 +50,6 @@ def main(render, streamer):
         z = pv_pose[2,-1]
 
         angle = np.arctan2(z,x)
-        print(angle)
         rot_mat = R.from_rotvec(np.array([0,-angle - np.pi/2,0])).as_matrix()
 
         pose = np.eye(4)
