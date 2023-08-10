@@ -56,10 +56,14 @@ class ClassDisplayWindow:
 
         #WINDOW
         rotz = Rotation.from_rotvec(np.array([0,0,np.pi/2])).as_matrix()
+        rot = Rotation.from_rotvec(np.array([np.pi,0,0])).as_matrix()
+
+        rotz = Rotation.from_rotvec(np.array([0,-np.pi/2,0])).as_matrix() @ rotz
+        rot = Rotation.from_rotvec(np.array([0,-np.pi/2,0])).as_matrix() @ rot
         self.window = Pose(rotz, center + np.array([[0,l,0]]).T)
 
-        rot = Rotation.from_rotvec(np.array([np.pi,0,0])).as_matrix()
-        self.text   = Pose(rot, center + np.array([[0,l,-1e-2]]).T)
+        
+        self.text   = Pose(rot, center + np.array([[3e-2,l,0]]).T)
         self.str = text
 
         self.objs_pose = [self.window, self.text]
@@ -74,7 +78,7 @@ class ClassDisplayWindow:
         rgba = [1,1,1,1]
         obj = pose2render(self.text, scale, rgba, 'text')
         obj.text = self.str
-        obj.font_size = 0.1
+        obj.font_size = 0.4
         self.objs.append(obj)
 
         return self.objs
@@ -161,7 +165,22 @@ class RenderBBox:
         self.objs.append( pose2render(self.side3, scale, self.rgba, 'cube') )
 
         return self.objs
-        
+
+class DetBox:
+    def __init__(self,bbox3d,thickness=1e-1):
+        self.display_window = ClassDisplayWindow(bbox3d,bbox3d.name)
+        self.box = RenderBBox(bbox3d,thickness)
+
+        self.objs_pose = self.display_window.objs_pose + self.box.objs_pose
+        self.objs = []
+
+    def create_render(self):
+        objs1 = self.display_window.create_render()
+        objs2 = self.box.create_render()
+
+        self.objs = objs1 + objs2
+        return self.objs
+
 
 class CoordinateFrame:
     def __init__(self, offset, size):

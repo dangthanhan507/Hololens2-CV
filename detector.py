@@ -30,6 +30,7 @@ class BBox3D:
             x0,y0,z0 = getTL()
             x1,y1,z1 = getBR()
         '''
+        self.name = name
         self.x0 = x0
         self.y0 = y0
         self.z0 = z0

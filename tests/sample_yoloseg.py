@@ -1,12 +1,13 @@
 import sys
 ROOT_PATH = "/home/andang/workspace/CV_Lab/Hololens2-CV-Server/"
 sys.path.append(ROOT_PATH)
-
+from scipy.spatial.transform import Rotation as R
 from hl2ss_stream import Hl2ssStreamWrapper, Hl2ssData
 from detector import BBox, YoloDetector, YoloSegment, BBox3D
 from hl2ss_render import Hl2ssRender, RenderObject
 from hl2ss_utils import Hl2ssDepthProcessor
 from render_lib import RenderBBox, setMultiObjectPose, CoordinateFrame
+from render_lib import DetBox
 from pynput import keyboard
 import cv2
 import cv_utils
@@ -38,6 +39,17 @@ def main(render, streamer):
         data_pv = data.data_pv
         data_lt = data.data_lt
 
+        pv_pose = data.data_pv.pose.T
+
+        x = pv_pose[0,-1]
+        z = pv_pose[2,-1]
+
+        angle = np.arctan2(z,x)
+        rot_mat = R.from_rotvec(np.array([0,-angle - np.pi/2,0])).as_matrix()
+        pose = np.eye(4)
+        pose[:3,:3] = rot_mat
+
+
         rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
         pts3d_image = cv_utils.rgbd_getpoints_imshape(depth, data.color_intrinsics[:3,:3].T)
         masks, bboxes = detector.eval(rgb)
@@ -50,6 +62,7 @@ def main(render, streamer):
         for n in range(len(masks)):
             mask = masks[n]
             mask = cv2.resize(mask,pts3d_image.shape[:2][::-1],interpolation=cv2.INTER_AREA)
+            bbox = bboxes[n]
             pts3d_mask = pts3d_image
 
             pts3d = pts3d_mask.reshape(3,-1)
@@ -59,9 +72,10 @@ def main(render, streamer):
             pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
             
             #get info for 3d bboxs
-            bbox3d = cv_utils.bbox_3d_from_pcd(pts_3d,name='bbox')
-            renderbbox = RenderBBox(bbox3d,thickness=0.01)
+            bbox3d = cv_utils.bbox_3d_from_pcd(pts_3d,name=bbox.name)
+            renderbbox = DetBox(bbox3d,thickness=0.01)
             bbox3d_objs = renderbbox.create_render()
+
             bbox3d_objs_ids = render.addPrimObjects(bbox3d_objs)
 
             #render cube in middle of "bbox"
@@ -85,7 +99,7 @@ def main(render, streamer):
         cv2.imshow('D',depth)
         cv2.imshow('PV',rgb)
         cv2.waitKey(1)
-        time.sleep(1)
+        time.sleep(5)
     return 0
 
 
