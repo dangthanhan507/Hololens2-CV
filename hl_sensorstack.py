@@ -5,16 +5,20 @@
 # in the entire hololens sensor stack. There's a lot of projection/unprojection
 # needed to be done. This class should have all of that processing done.
 #------------------------------------------------------------------------------
-from hl2ss_stream import HOST_IP, ROOT_PATH
 import os
 import sys
+
+from hl2ss_stream import HOST_IP, ROOT_PATH
+
 sys.path.append(os.path.join(ROOT_PATH,'hl2ss','viewer'))
 import numpy as np
 
 CALIB_PATH = os.path.join(ROOT_PATH,'hl2ss','calibration')
 
-import hl2ss
 import hl2ss_3dcv
+
+import hl2ss
+
 '''
 Sensor Stack Description:
 --------------------------
@@ -60,13 +64,14 @@ class SensorCalibration:
         '''
         self.intrinsics = intrinsics
         self.extrinsics = extrinsics
+
     def get_intrinsics(self):
         return self.intrinsics
     def get_extrinsics(self):
         return self.extrinsics
     
     def sensor2body(self):
-        return np.linalg.inv(self.extrisnics)
+        return np.linalg.inv(self.extrinsics)
     def body2sensor(self):
         return self.extrinsics
     
@@ -76,9 +81,69 @@ class SensorCalibration:
         return np.linalg.inv(pose)
     
     def world2sensor(self, pose):
-        return self.world2body(pose) @ self.body2sensor()
+        return self.body2sensor() @ self.world2body(pose)
     def sensor2world(self, pose):
         return self.body2world(pose) @ self.sensor2body()
+
+def get_calibration_from_folder(folder):
+    calib_lf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_LEFTFRONT, os.path.join(folder,"rm_vlc_leftfront"))
+    calib_rf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_LEFTFRONT, os.path.join(folder,"rm_vlc_rightfront"))
+    calib_depth = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_LEFTFRONT, os.path.join(folder,"rm_depth_longthrow"))
+
+    sensor_calib_lf = SensorCalibration(calib_lf.intrinsics.T, calib_lf.extrinsics.T)
+    sensor_calib_rf = SensorCalibration(calib_rf.intrinsics.T, calib_rf.extrinsics.T)
+    sensor_calib_depth = SensorCalibration(calib_depth.intrinsics.T, calib_depth.extrinsics.T)
+    return sensor_calib_lf, sensor_calib_rf, sensor_calib_depth
+
 class KinematicChain:
-    def __init__(self):
-        pass
+    '''
+    Automate finding the transformation from one frame to another frame
+    '''
+    def __init__(self, rgb_intrinsics, rgb_extrinsics):
+        s1, s2, s3 = get_calibration_from_folder(CALIB_PATH)
+        # self.sensor_calib_lf = s1
+        # self.sensor_calib_rf = s2
+        # self.sensor_calib_depth = s3
+        # self.sensor_calib_rgb = SensorCalibration(rgb_intrinsics, rgb_extrinsics)
+        self.valid_frames = {
+                "vlc_left": "sensor", 
+                "vlc_right": "sensor",
+                "depth": "sensor", 
+                "rgb": "sensor",
+                "world": "world",
+                "body": "body"}
+        self.calib_info = {
+                "vlc_left": s1,
+                "vlc_right": s2,
+                "depth": s3,
+                "rgb": SensorCalibration(rgb_intrinsics, rgb_extrinsics)
+        }
+
+    def compute_transform(self, f1, f2, pose1, pose2=None):
+        '''
+        Description:
+        ------------
+        * pose2 is only used when computing transforms between sensors
+        '''
+        if self.valid_frames[f1] == "sensor" and self.valid_frames[f2] == "sensor":
+            assert pose2 != None
+            return self.sensor2sensor(f1, f2, pose1, pose2)
+        elif self.valid_frames[f1] == "world" and self.valid_frames[f2] == "sensor":
+            return self.world2sensor(f2, pose1)
+        elif self.valid_frames[f1] == "sensor" and self.valid_frames[f2] == "world":
+            return self.sensor2world(f1, pose1) 
+        else:
+            raise Exception("You naughty coder, you set the wrong combination")
+
+    def sensor2sensor(self, f1, f2, pose1, pose2):
+        return self.world2sensor(f2, pose2) @ self.sensor2world(f1, pose1)
+
+    def sensor2world(self, f1, pose1):
+        assert self.valid_frames[f1] == "sensor"
+        sensor_calib = self.calib_info[f1]
+        return sensor_calib.sensor2world(pose1)
+
+    def world2sensor(self, f1, pose1):
+        assert self.valid_frames[f1] == "sensor"
+        sensor_calib = self.calib_info[f1]
+        return sensor_calib.world2sensor(pose1)
