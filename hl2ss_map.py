@@ -25,8 +25,6 @@ class Hl2ssMapping:
         else:
             pass
 
-
-
     def observe_map(self):
         sm_origin = [0, 0, 0] # Origin of sampling volume
         sm_radius = 100 # Radius of sampling volume 
@@ -57,3 +55,11 @@ class Hl2ssMapping:
 
     def load_map(self, path):
         return o3d.io.read_triangle_mesh(path)
+    
+    def rays2depth(self, rays):
+        '''
+        (M,N,3) rays
+        '''
+        depth = self.sm_manager.cast_rays(rays)
+        depth[np.isinf(depth)] = 0
+        return depth
