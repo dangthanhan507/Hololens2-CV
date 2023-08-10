@@ -9,20 +9,23 @@
 #------------------------------------------------------------------------------
 
 
-ROOT_PATH = "/home/andang/workspace/CV_Lab/Hololens2-CV-Server/"
+ROOT_PATH = "../Hololens2-CV-Server/"
 
 #library imports
 import multiprocessing as mp
-import numpy as np
-import cv2
 import os
 import sys
+
+import cv2
+import numpy as np
+
 sys.path.append(os.path.join(ROOT_PATH,'hl2ss','viewer'))
+import hl2ss_3dcv
+import hl2ss_mp
+import hl2ss_utilities
+
 #hl2ss specific imports
 import hl2ss
-import hl2ss_mp
-import hl2ss_3dcv
-import hl2ss_utilities
 
 # hl2ss Settings --------------------------------------------------------------
 HOST_IP = '192.168.43.19' #ipv4 of hololens

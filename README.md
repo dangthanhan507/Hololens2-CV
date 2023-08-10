@@ -1,5 +1,5 @@
-# Hololens2-CV-Server
-Hololens2 Project Integrating Computer Vision Software (server-side) with the Hololens.
+# Hololens2-CV
+Hololens2 Project Utilizing Computer Vision w/ Rendering Technology to create AR application.
 Server/Computer stores all logic and data structures while the Hololens acts as the display.
 
 ## Current Direction:
