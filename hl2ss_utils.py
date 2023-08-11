@@ -98,3 +98,9 @@ class Hl2ssDepthProcessor:
 
 def get_pv_image(data_pv):
     return data_pv.payload.image
+
+def create_rays(intrinsics, width, height):
+    rays = hl2ss_3dcv.compute_uv2xy(intrinsics,width,height)
+    rays = hl2ss_3dcv.to_homogeneous(rays)
+    rays = hl2ss_3dcv.to_unit(rays)
+    return rays

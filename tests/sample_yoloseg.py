@@ -39,16 +39,6 @@ def main(render, streamer):
         data_pv = data.data_pv
         data_lt = data.data_lt
 
-        pv_pose = data.data_pv.pose.T
-
-        x = pv_pose[0,-1]
-        z = pv_pose[2,-1]
-
-        angle = np.arctan2(z,x)
-        rot_mat = R.from_rotvec(np.array([0,-angle - np.pi/2,0])).as_matrix()
-        pose = np.eye(4)
-        pose[:3,:3] = rot_mat
-
 
         rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
         pts3d_image = cv_utils.rgbd_getpoints_imshape(depth, data.color_intrinsics[:3,:3].T)
