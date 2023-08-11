@@ -87,8 +87,8 @@ class SensorCalibration:
 
 def get_calibration_from_folder(folder):
     calib_lf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_LEFTFRONT, os.path.join(folder,"rm_vlc_leftfront"))
-    calib_rf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_LEFTFRONT, os.path.join(folder,"rm_vlc_rightfront"))
-    calib_depth = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_LEFTFRONT, os.path.join(folder,"rm_depth_longthrow"))
+    calib_rf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_RIGHTFRONT, os.path.join(folder,"rm_vlc_rightfront"))
+    calib_depth = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_DEPTH_LONGTHROW, os.path.join(folder,"rm_depth_longthrow"))
 
     sensor_calib_lf = SensorCalibration(calib_lf.intrinsics.T, calib_lf.extrinsics.T)
     sensor_calib_rf = SensorCalibration(calib_rf.intrinsics.T, calib_rf.extrinsics.T)
@@ -118,6 +118,8 @@ class KinematicChain:
                 "depth": s3,
                 "rgb": SensorCalibration(rgb_intrinsics, rgb_extrinsics)
         }
+    def update_pv_calibration(self, intrinsics, extrinsics):
+        self.calib_info['rgb'] = SensorCalibration(intrinsics,extrinsics)
 
     def compute_transform(self, f1, f2, pose1, pose2=None):
         '''
