@@ -34,7 +34,7 @@ class KalmanFilter:
         self.cov = (np.eye(self.cov.shape[0]) - K @ self.C) @ self.cov
         
     def drawState(self, image):
-        bbox = self.state_to_bbox(self.state)
+        bbox = self.state_to_bbox()
         bbox.name = f'ID:{self.id}'
         
         height,width,_ = image.shape
@@ -45,16 +45,17 @@ class KalmanFilter:
         return image
 
     def getAllCorners(self):
-        bbox = self.state_to_bbox(self.state)
+        bbox = self.state_to_bbox()
         return bbox.getAllCorners()
 
-    def state_to_bbox(self, state):
-        cx = state[0,0]
-        cy = state[1,0]
-        cz = state[2,0]
-        l = state[3,0]
-        w = state[4,0]
-        h = state[5,0]
+    def state_to_bbox(self):
+        # TODO: remove reliance on state parameter, use self.state instead!!!
+        cx = self.state[0,0]
+        cy = self.state[1,0]
+        cz = self.state[2,0]
+        l = self.state[3,0]
+        w = self.state[4,0]
+        h = self.state[5,0]
         
         xTL = cx - w/2
         xBR = cx + w/2
@@ -78,7 +79,6 @@ class MultiObjectTracker:
         self.conf = 0.95 
 
         self.gate_matrix_thresh1 = 10 
-        self.gate_matrix_thresh2 = 0.85
 
     def initialize_object(self, bbox):
         '''
@@ -96,7 +96,7 @@ class MultiObjectTracker:
             None 
         '''
         track_vector = self.bbox_to_state(bbox)
-        track_cov    = np.eye(10)
+        track_cov    = np.eye(9)
         
         #assign id
         id_ = self.id_ctr
@@ -105,10 +105,10 @@ class MultiObjectTracker:
         #first 3 rows, last 3 column
         # A = np.eye(8)
         # A[:4,4:] = np.eye(4)
-        A = np.eye(10)
-        A[:5, 5:] = np.eye(5)
+        A = np.eye(9)
+        A[:3, -3:] = np.eye(3)
         
-        obj = TrackerObj(A=A, C=np.eye(10), Q=np.eye(10), R=1e-3*np.eye(10),obj_id=id_)
+        obj = TrackerObj(A=A, C=np.eye(9), Q=np.eye(9), R=1e-3*np.eye(9),obj_id=id_)
         obj.initialize(track_vector, track_cov)
         self.objs.append(obj)
 
@@ -152,7 +152,7 @@ class MultiObjectTracker:
             det_idx = det_matched[i]
             
             det = self.bbox_to_state(bboxes[det_idx])
-            det[4:] = self.calc_velocity(det, self.objs[obj_idx].state)
+            det[-3:] = self.calc_velocity(det, self.objs[obj_idx].state)
             
             self.objs[obj_idx].update(det)
             objs_new.append(self.objs[i])
@@ -165,10 +165,16 @@ class MultiObjectTracker:
             if i not in det_matched:
                 self.initialize_object(bboxes[i])
 
+    def get_bbox_3d_pts(self):
+        pts3d = np.zeros((3, len(self.objs) * 2))
+        for i in range(len(self.objs)):
+            pts3d[:, 2*i:2*i+2] = self.objs[i].state_to_bbox().getAll().reshape((3,2), order='F')
+        return pts3d
+
     def match_tracks_and_detections(self, bboxes):
         predicted_boxes = []
         for obj in self.objs:
-            bbox = obj.state_to_bbox(obj.state)
+            bbox = obj.state_to_bbox()
             predicted_boxes.append(bbox)
 
         m = len(predicted_boxes)
@@ -215,8 +221,8 @@ class MultiObjectTracker:
         w = xBR - xTL
         h = zBR - zTL
         
-        return np.array([[cx,cy,cz,l,w,h,0,0,0,0]]).T
+        return np.array([[cx,cy,cz,l,w,h,0,0,0]]).T
 
     def calc_velocity(self, curr_state, prev_state):
-        vel = curr_state[:6] - prev_state[:6]
+        vel = curr_state[:3] - prev_state[:3]
         return vel
