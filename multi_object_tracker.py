@@ -10,12 +10,11 @@ class KalmanFilter:
     x_k+1 = A*x_k + N(0,Q)
     y_k   = C*x_k + N(0,R)
     '''
-    def __init__(self, A, C, Q, R, obj_id):
+    def __init__(self, A, C, Q, R):
         self.A = A
         self.C = C
         self.Q = Q
         self.R = R
-        self.id = obj_id
         
         self.state = None
         self.cov   = None
@@ -33,6 +32,12 @@ class KalmanFilter:
         self.state  = self.state + K @ (meas - self.C @ self.state)
         self.cov = (np.eye(self.cov.shape[0]) - K @ self.C) @ self.cov
         
+class TrackerObj(KalmanFilter):
+    def __init__(self, A, C, Q, R, obj_id=0, is_matched_before=False):
+        super().__init__(A, C, Q, R, obj_id) 
+        self.is_matched_before  = is_matched_before 
+        self.id = obj_id
+    
     def drawState(self, image):
         bbox = self.state_to_bbox()
         bbox.name = f'ID:{self.id}'
@@ -65,12 +70,6 @@ class KalmanFilter:
         zBR = cz + h/2
 
         return BBox3D(xTL, yTL, zTL, xBR, yBR, zBR, name="bbox")
-
-class TrackerObj(KalmanFilter):
-    def __init__(self, A, C, Q, R, obj_id=0, age=0, is_matched_before=False):
-        super().__init__(A, C, Q, R, obj_id) 
-        self.is_matched_before  = is_matched_before 
-        self.age = age 
 
 class MultiObjectTracker:
     def __init__(self) -> None:
@@ -168,7 +167,7 @@ class MultiObjectTracker:
     def get_bbox_3d_pts(self):
         pts3d = np.zeros((3, len(self.objs) * 2))
         for i in range(len(self.objs)):
-            pts3d[:, 2*i:2*i+2] = self.objs[i].state_to_bbox().getAll().reshape((3,2), order='F')
+            pts3d[:, 2*i:2*i+2] = self.objs[i].state_to_bbox().getAllCorners().reshape((3,2), order='F')
         return pts3d
 
     def match_tracks_and_detections(self, bboxes):

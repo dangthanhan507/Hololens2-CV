@@ -43,7 +43,7 @@ class BBox3D:
         return (self.x0, self.y0, self.z0)
     def getBR(self):
         return (self.x1, self.y1, self.z1)
-    def getAll(self):
+    def getAllCorners(self):
         return np.array([self.x0, self.y0, self.z0, self.x1, self.y1, self.z1])
 
 '''
