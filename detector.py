@@ -11,6 +11,35 @@ import torch
 from ultralytics import YOLO
 
 
+def IOU(bbox1, bbox2):
+    '''
+        Calculate intersection over union.
+        Area of overlapping boudning boxes
+    '''
+    x1TL,y1TL = bbox1.getTL()
+    x1BR,y1BR = bbox1.getBR()
+
+    x2TL,y2TL = bbox2.getTL()
+    x2BR,y2BR = bbox2.getBR()
+
+    biggestLX  = max(x1TL, x2TL)
+    smallestRX = min(x1BR, x2BR)
+
+    biggestYT  = max(y1TL, y2TL)
+    smallestYB = max(y1BR, y2BR)
+
+    area = smallestRX - biggestLX * smallestYB - biggestYT
+    return area
+
+def preprocess_bbox_IOU(bboxes, thresh=100):
+    da_cool_kids = [True] * len(bboxes)
+    for i in range(len(bboxes)):
+        for j in range(i + 1, len(bboxes)):
+            if IOU(bboxes[i], bboxes[j]) > thresh:
+                da_cool_kids[j] = False
+
+    return [bboxes[i] for i in range(len(bboxes)) if da_cool_kids[i]]
+
 class BBox3D:
     def __init__(self, x0, y0, z0, x1, y1, z1, name):
         '''

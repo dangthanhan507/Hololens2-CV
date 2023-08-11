@@ -33,10 +33,11 @@ class KalmanFilter:
         self.cov = (np.eye(self.cov.shape[0]) - K @ self.C) @ self.cov
         
 class TrackerObj(KalmanFilter):
-    def __init__(self, A, C, Q, R, obj_id=0, is_matched_before=False):
-        super().__init__(A, C, Q, R, obj_id) 
+    def __init__(self, A, C, Q, R, obj_id=0, age=0, is_matched_before=False):
+        super().__init__(A, C, Q, R) 
         self.is_matched_before  = is_matched_before 
         self.id = obj_id
+        self.age = age
     
     def drawState(self, image):
         bbox = self.state_to_bbox()
@@ -70,6 +71,9 @@ class TrackerObj(KalmanFilter):
         zBR = cz + h/2
 
         return BBox3D(xTL, yTL, zTL, xBR, yBR, zBR, name="bbox")
+
+    def increment_age(self):
+        self.age += 1
 
 class MultiObjectTracker:
     def __init__(self) -> None:
@@ -155,6 +159,9 @@ class MultiObjectTracker:
             
             self.objs[obj_idx].update(det)
             objs_new.append(self.objs[i])
+        for i in range(len(self.objs)):
+            if i not in obj_matched:
+                objs_new.append(self.objs[i])
         
         #filter only objects that got tracked
         self.objs = objs_new
@@ -163,6 +170,15 @@ class MultiObjectTracker:
         for i in range(len(bboxes)):
             if i not in det_matched:
                 self.initialize_object(bboxes[i])
+
+
+        # update objs
+        print("| Num of objects after iteration:", len(self.objs))
+        for obj in self.objs:
+            obj.increment_age()
+            print("| id:", obj.id)
+            print("| corners:", obj.state_to_bbox().getAllCorners())
+
 
     def get_bbox_3d_pts(self):
         pts3d = np.zeros((3, len(self.objs) * 2))
@@ -185,13 +201,13 @@ class MultiObjectTracker:
                         self.bbox_to_state(predicted_boxes[pred_idx]), 
                         self.bbox_to_state(bboxes[meas_idx]),
                         self.objs[pred_idx])
-                e_dist = ((predicted_boxes[pred_idx].getAll() - bboxes[meas_idx].getAll()) ** 2).sum()
 
                 #SANITY CHECK TO MAKE SURE MAHALANOBIS DISTANCE WORKS AS INTENDED
-                if e_dist < 50:
-                    print("| Could be plausible match, m dist. is", cost_matrix[pred_idx, meas_idx], "|")
-                    print(f"| Pred: {predicted_boxes[pred_idx].getAll()}  |")
-                    print(f"| Detected: {bboxes[meas_idx].getAll()}  |")
+                # e_dist = ((predicted_boxes[pred_idx].getAllCorners() - bboxes[meas_idx].getAllCorners()) ** 2).sum()
+                # if e_dist < 50:
+                #     print("| Could be plausible match, m dist. is", cost_matrix[pred_idx, meas_idx], "|")
+                #     print(f"| Pred: {predicted_boxes[pred_idx].getAllCorners()}  |")
+                #     print(f"| Detected: {bboxes[meas_idx].getAllCorners()}  |")
 
         
         row_ind, col_ind = linear_sum_assignment(-cost_matrix)
