@@ -58,12 +58,12 @@ class ClassDisplayWindow:
         rotz = Rotation.from_rotvec(np.array([0,0,np.pi/2])).as_matrix()
         rot = Rotation.from_rotvec(np.array([np.pi,0,0])).as_matrix()
 
-        rotz = Rotation.from_rotvec(np.array([0,-np.pi/2,0])).as_matrix() @ rotz
-        rot = Rotation.from_rotvec(np.array([0,-np.pi/2,0])).as_matrix() @ rot
+        rotz = Rotation.from_rotvec(np.array([0,np.pi/2,0])).as_matrix() @ rotz
+        rot = Rotation.from_rotvec(np.array([0,np.pi/2,0])).as_matrix() @ rot
         self.window = Pose(rotz, center + np.array([[0,l,0]]).T)
 
         
-        self.text   = Pose(rot, center + np.array([[3e-2,l,0]]).T)
+        self.text   = Pose(rot, center + np.array([[-3e-2,l,0]]).T)
         self.str = text
 
         self.objs_pose = [self.window, self.text]
