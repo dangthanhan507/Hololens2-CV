@@ -55,11 +55,13 @@ if __name__ == '__main__':
         rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
         pts3d_image = cv_utils.rgbd_getpoints_imshape(depth, data.color_intrinsics[:3,:3].T)
         masks, boxes = detector.eval(rgb, filter_cls=["toilet"])
-        boxes = preprocess_bbox_IOU(boxes)
+        da_cool_kids = preprocess_bbox_IOU(boxes)
 
         depth_mask = (np.zeros(pts3d_image.shape[:2]) != 0)
         bboxes = []
-        for n in range(len(masks)):
+        for n in range(len(da_cool_kids)):
+            if not da_cool_kids[n]:
+                continue
             mask = masks[n]
             mask = cv2.resize(mask,pts3d_image.shape[:2][::-1],interpolation=cv2.INTER_AREA)
             pts3d_mask = pts3d_image

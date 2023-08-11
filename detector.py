@@ -26,19 +26,22 @@ def IOU(bbox1, bbox2):
     smallestRX = min(x1BR, x2BR)
 
     biggestYT  = max(y1TL, y2TL)
-    smallestYB = max(y1BR, y2BR)
+    smallestYB = min(y1BR, y2BR)
 
-    area = smallestRX - biggestLX * smallestYB - biggestYT
+    area = (smallestRX - biggestLX) * (smallestYB - biggestYT)
     return area
 
 def preprocess_bbox_IOU(bboxes, thresh=100):
     da_cool_kids = [True] * len(bboxes)
     for i in range(len(bboxes)):
         for j in range(i + 1, len(bboxes)):
-            if IOU(bboxes[i], bboxes[j]) > thresh:
-                da_cool_kids[j] = False
-
-    return [bboxes[i] for i in range(len(bboxes)) if da_cool_kids[i]]
+            iou = IOU(bboxes[i], bboxes[j])
+            print("IOU:", iou)
+            if iou > thresh:
+                da_cool_kids[i] = False
+                # da_cool_kids[j] = False
+                # print("GONNA SKIPPP LMAO")
+    return da_cool_kids
 
 class BBox3D:
     def __init__(self, x0, y0, z0, x1, y1, z1, name):
