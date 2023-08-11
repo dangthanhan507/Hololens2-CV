@@ -187,6 +187,8 @@ class MultiObjectTracker:
                         self.bbox_to_state(bboxes[meas_idx]),
                         self.objs[pred_idx])
                 e_dist = ((predicted_boxes[pred_idx].getAll() - bboxes[meas_idx].getAll()) ** 2).sum()
+
+                #SANITY CHECK TO MAKE SURE MAHALANOBIS DISTANCE WORKS AS INTENDED
                 if e_dist < 50:
                     print("| Could be plausible match, m dist. is", cost_matrix[pred_idx, meas_idx], "|")
                     print(f"| Pred: {predicted_boxes[pred_idx].getAll()}  |")
@@ -226,3 +228,6 @@ class MultiObjectTracker:
     def calc_velocity(self, curr_state, prev_state):
         vel = curr_state[:3] - prev_state[:3]
         return vel
+    
+    def getBBoxes(self):
+        return [obj.state_to_bbox() for obj in self.objs]
