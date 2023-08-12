@@ -155,7 +155,7 @@ class MultiObjectTracker:
             det_idx = det_matched[i]
             
             det = self.bbox_to_state(bboxes[det_idx])
-            det[-3:] = self.calc_velocity(det, self.objs[obj_idx].state)
+            det[-3:] = self.calc_velocity()
             
             self.objs[obj_idx].update(det)
             objs_new.append(self.objs[i])
@@ -240,9 +240,8 @@ class MultiObjectTracker:
         
         return np.array([[cx,cy,cz,l,w,h,0,0,0]]).T
 
-    def calc_velocity(self, curr_state, prev_state):
-        vel = curr_state[:3] - prev_state[:3]
-        return vel
+    def calc_velocity(self):
+        return np.zeros((3,1))
     
     def getBBoxes(self):
         return [obj.state_to_bbox() for obj in self.objs]
