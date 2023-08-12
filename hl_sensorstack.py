@@ -91,7 +91,7 @@ class HololensSensorStack:
         transformed_pts3 = transform @ pts3
         cam_pts2 = intrinsics @ transformed_pts3
         cam_pts2 = cam_pts2[0:2,:]/cam_pts2[2,:]
-        return cam_pts2, transformed_pts3
+        return cam_pts2
 
 class SensorCalibration:
     '''
@@ -166,7 +166,7 @@ class KinematicChain:
         * pose2 is only used when computing transforms between sensors
         '''
         if self.valid_frames[f1] == "sensor" and self.valid_frames[f2] == "sensor":
-            assert (pose2 != None).all()
+            assert pose2 is not None 
             return self.sensor2sensor(f1, f2, pose1, pose2)
         elif self.valid_frames[f1] == "world" and self.valid_frames[f2] == "sensor":
             return self.world2sensor(f2, pose1)

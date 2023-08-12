@@ -26,11 +26,14 @@ def on_press(key):
     enable = key != keyboard.Key.esc
     return enable
 
-def draw_bbox2d(bbox_pts2d, frame):
-    for i in range(0, bbox_pts2d.shape[1], 2):
-        pts2d = bbox_pts2d[:,2*i: 2*i+2].flatten(order='F').tolist()
-        bbox = BBox(*(pts2d + ["bbox"]))
-        bbox.drawBox(frame)
+def create_bbox(pts2, class_name):
+    xLT = np.min(pts2[0,:])
+    yLT = np.min(pts2[1,:])
+    xBR = np.max(pts2[0,:])
+    yBR = np.max(pts2[1,:])
+
+    bbox2d = BBox(xLT, yLT, xBR, yBR, class_name)
+    return bbox2d
 
 if __name__ == '__main__':
     print('Starting up Player')
@@ -56,6 +59,9 @@ if __name__ == '__main__':
         kin_chain.update_pv_calibration(data.color_intrinsics.T, data.color_extrinsics.T)
         data_pv = data.data_pv
         data_lt = data.data_lt
+        data_lf = data.data_lf
+        data_rf = data.data_rf
+
         rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
         real_depth_img = depth_processor.undistort(depth_processor.get_depthimage(data_lt))
         real_depth_img = real_depth_img[:,:,np.newaxis].astype(float)
@@ -64,11 +70,17 @@ if __name__ == '__main__':
         masks, boxes = detector.eval(rgb, filter_cls=["toilet"])
         da_cool_kids = preprocess_bbox_IOU(boxes)
 
+        lf = data.data_lf.payload
+        rf = data.data_rf.payload
+        real_lf = lf[:,:,np.newaxis]
+        real_rf = rf[:,:,np.newaxis]
+
         bboxes = []
         rgb_pose = data_pv.pose.T
         depth_pose = data_lt.pose.T
-        rgb2depth_transform = kin_chain.compute_transform("world", "depth", depth_pose)
-        # depth2vlc_lf_transform = kin_chain.compute_transform()
+        world2depth_transform = kin_chain.compute_transform("world", "depth", depth_pose)
+        world2vlc_lf_transform = kin_chain.compute_transform("world", "vlc_left", data_lf.pose.T)
+        world2vlc_rf_transform = kin_chain.compute_transform("world", "vlc_right", data_rf.pose.T)
         for n in range(len(da_cool_kids)):
             if not da_cool_kids[n]:
                 continue
@@ -88,30 +100,24 @@ if __name__ == '__main__':
 
             rgb = boxes[n].drawBox(rgb)
 
-            depth_bbox_pts = sensor_stack.project_onto_depth_frame(pts_3d, rgb2depth_transform)
-            depth_bbox_pts2d, depth_bbox_pts3d = depth_bbox_pts
-            xLT = np.min(depth_bbox_pts2d[0,:])
-            yLT = np.min(depth_bbox_pts2d[1,:])
-            xBR = np.max(depth_bbox_pts2d[0,:])
-            yBR = np.max(depth_bbox_pts2d[1,:])
-
-            bbox2d = BBox(xLT, yLT, xBR, yBR, "toilet")
+            depth_pts2d = sensor_stack.project_onto_depth_frame(pts_3d, world2depth_transform)
+            bbox2d = create_bbox(depth_pts2d, "toilet")
             bbox2d.drawBox(real_depth_img)
 
-            vlc_lf_pts = depth_processor.project_onto_vlc_sensor(depth_bbox_pts3d, data_lt.pose.T, data.data_lf.pose.T, "left")
-            vlc_lf_bbox_pts2d, vlc_lf_bbox_pts3d = vlc_lf_pts
-            draw_bbox2d(vlc_lf_bbox_pts2d, lf)
+            vlc_lf_pts2d = sensor_stack.project_onto_vlc_sensor(pts_3d, world2vlc_lf_transform, "left")
+            vlc_lf_bbox2d = create_bbox(vlc_lf_pts2d, "toilet")
+            vlc_lf_bbox2d.drawBox(real_lf)
 
-            vlc_rf_pts = depth_processor.project_onto_vlc_sensor(depth_bbox_pts3d, data_lt.pose.T, data.data_lf.pose.T, "right")
-            vlc_rf_bbox_pts2d, vlc_rf_bbox_pts3d = vlc_rf_pts
-            draw_bbox2d(vlc_rf_bbox_pts3d, rf)
+            vlc_rf_pts2d = sensor_stack.project_onto_vlc_sensor(pts_3d, world2vlc_rf_transform, "right")
+            vlc_rf_bbox2d = create_bbox(vlc_rf_pts2d, "toilet")
+            vlc_rf_bbox2d.drawBox(real_rf)
 
-            cv2.imshow('LF', lf)
-            cv2.imshow('RF', rf)
         tracker.track_boxes(bboxes)
         bbox3d_pts = tracker.get_bbox_3d_pts()
 
 
+        cv2.imshow('LF', real_lf)
+        cv2.imshow('RF', real_rf)
         cv2.imshow('D',real_depth_img)
         cv2.imshow('PV',rgb)
         cv2.waitKey(1)
