@@ -14,8 +14,9 @@ import cv_utils
 from detector import BBox, YoloSegment, preprocess_bbox_IOU
 from hl2ss_map import Hl2ssMapping
 from hl2ss_read import Hl2ssOfflineStreamer
+from hl2ss_stereo import Hl2ssStereo
 from hl2ss_utils import Hl2ssDepthProcessor
-from hl_sensorstack import HololensSensorStack
+from hl_sensorstack import HololensSensorStack, KinematicChain
 from multi_object_tracker import MultiObjectTracker
 from render_lib import RenderBBox
 
@@ -36,29 +37,38 @@ if __name__ == '__main__':
     listener = keyboard.Listener(on_press=on_press)
     listener.start()
 
-    player = Hl2ssOfflineStreamer('./offline_script0',{})
+    player = Hl2ssOfflineStreamer('./offline_script0',opts={"vlc_front": True})
     player.open()
-
-    sensor_stack = HololensSensorStack()
-    depth_processor = Hl2ssDepthProcessor(sensor_stack.calib_lt)
 
     detector = YoloSegment("yolov8n-seg.pt")
     tracker = MultiObjectTracker()
+    kin_chain = KinematicChain(player.pv_intrinsics, player.pv_extrinsics) 
+
+    sensor_stack = HololensSensorStack(kin_chain)
+    depth_processor = Hl2ssDepthProcessor(sensor_stack.calib_lt)
+    stereo = Hl2ssStereo()
  
     while enable:
         data = player.getData()
         if data is None:
             continue
 
+        kin_chain.update_pv_calibration(data.color_intrinsics.T, data.color_extrinsics.T)
         data_pv = data.data_pv
         data_lt = data.data_lt
         rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
+        real_depth_img = depth_processor.undistort(depth_processor.get_depthimage(data_lt))
+        real_depth_img = real_depth_img[:,:,np.newaxis].astype(float)
+        real_depth_img /= real_depth_img.max() 
         pts3d_image = cv_utils.rgbd_getpoints_imshape(depth, data.color_intrinsics[:3,:3].T)
         masks, boxes = detector.eval(rgb, filter_cls=["toilet"])
         da_cool_kids = preprocess_bbox_IOU(boxes)
 
-        depth_mask = (np.zeros(pts3d_image.shape[:2]) != 0)
         bboxes = []
+        rgb_pose = data_pv.pose.T
+        depth_pose = data_lt.pose.T
+        rgb2depth_transform = kin_chain.compute_transform("world", "depth", depth_pose)
+        # depth2vlc_lf_transform = kin_chain.compute_transform()
         for n in range(len(da_cool_kids)):
             if not da_cool_kids[n]:
                 continue
@@ -78,32 +88,31 @@ if __name__ == '__main__':
 
             rgb = boxes[n].drawBox(rgb)
 
+            depth_bbox_pts = sensor_stack.project_onto_depth_frame(pts_3d, rgb2depth_transform)
+            depth_bbox_pts2d, depth_bbox_pts3d = depth_bbox_pts
+            xLT = np.min(depth_bbox_pts2d[0,:])
+            yLT = np.min(depth_bbox_pts2d[1,:])
+            xBR = np.max(depth_bbox_pts2d[0,:])
+            yBR = np.max(depth_bbox_pts2d[1,:])
+
+            bbox2d = BBox(xLT, yLT, xBR, yBR, "toilet")
+            bbox2d.drawBox(real_depth_img)
+
+            vlc_lf_pts = depth_processor.project_onto_vlc_sensor(depth_bbox_pts3d, data_lt.pose.T, data.data_lf.pose.T, "left")
+            vlc_lf_bbox_pts2d, vlc_lf_bbox_pts3d = vlc_lf_pts
+            draw_bbox2d(vlc_lf_bbox_pts2d, lf)
+
+            vlc_rf_pts = depth_processor.project_onto_vlc_sensor(depth_bbox_pts3d, data_lt.pose.T, data.data_lf.pose.T, "right")
+            vlc_rf_bbox_pts2d, vlc_rf_bbox_pts3d = vlc_rf_pts
+            draw_bbox2d(vlc_rf_bbox_pts3d, rf)
+
+            cv2.imshow('LF', lf)
+            cv2.imshow('RF', rf)
         tracker.track_boxes(bboxes)
         bbox3d_pts = tracker.get_bbox_3d_pts()
 
-        # print("Data PV:")
-        # print(data_pv.pose.T)
-        # print("Poses:")
-        # print(data_lt.pose.T)
-        # depth_bbox_pts = depth_processor.project_onto_depth_frame(bbox3d_pts, data_pv.pose.T, data_lt.pose.T)
-        # depth_bbox_pts2d, depth_bbox_pts3d = depth_bbox_pts
-        # draw_bbox2d(depth_bbox_pts2d, depth)
-        #
-        # lf = data.data_lf.payload
-        # rf = data.data_rf.payload
-        # lf, rf = stereo.stereo_pipeline(lf,rf)
-        #
-        # vlc_lf_pts = depth_processor.project_onto_vlc_sensor(depth_bbox_pts3d, data_lt.pose.T, data.data_lf.pose.T, "left")
-        # vlc_lf_bbox_pts2d, vlc_lf_bbox_pts3d = vlc_lf_pts
-        # draw_bbox2d(vlc_lf_bbox_pts2d, lf)
-        #
-        # vlc_rf_pts = depth_processor.project_onto_vlc_sensor(depth_bbox_pts3d, data_lt.pose.T, data.data_lf.pose.T, "right")
-        # vlc_rf_bbox_pts2d, vlc_rf_bbox_pts3d = vlc_rf_pts
-        # draw_bbox2d(vlc_rf_bbox_pts3d, rf)
-        #
-        # cv2.imshow('LF', lf)
-        # cv2.imshow('RF', rf)
-        cv2.imshow('D',depth)
+
+        cv2.imshow('D',real_depth_img)
         cv2.imshow('PV',rgb)
         cv2.waitKey(1)
         time.sleep(1)

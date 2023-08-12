@@ -36,20 +36,62 @@ Sensor Stack Description:
     -> PV camera (30fps)
 '''
 class HololensSensorStack:
-    def __init__(self):
+    def __init__(self, kin_chain):
         self.calib_lt = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_DEPTH_LONGTHROW, os.path.join(CALIB_PATH,"rm_depth_longthrow"))
         uv2xy = hl2ss_3dcv.compute_uv2xy(self.calib_lt.intrinsics, hl2ss.Parameters_RM_DEPTH_LONGTHROW.WIDTH, hl2ss.Parameters_RM_DEPTH_LONGTHROW.HEIGHT)
         self.xy1, self.lt_scale = hl2ss_3dcv.rm_depth_compute_rays(uv2xy, self.calib_lt.scale)
 
         self.calib_lf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_LEFTFRONT, os.path.join(CALIB_PATH,"rm_vlc_leftfront"))
         self.calib_rf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_RIGHTFRONT, os.path.join(CALIB_PATH,"rm_vlc_rightfront"))
+        self.kin_chain = kin_chain
 
         
     def update_pv_calibration(self, pv_intrinsics, pv_extrinsics):
         pass
+
     def undistort(self, undistort_map, data):
         pass
+    
+    def project_onto_depth_frame(self, pts3, transform):
+        '''
+        Description:
+        ------------
+        Project the 3d bbox points onto the depth camera.
+        * This function is only for projecting 3d pts from rgb
+          to depth
 
+        Params:
+        -------
+        bbox_pts: np.ndarray of shape (3,N) 
+        ''' 
+        depth_intrinsics = self.kin_chain.calib_info["depth"].intrinsics
+        print("Depth Intrinsics:")
+        print(depth_intrinsics)
+        return self._compute_transformed_pts(pts3, transform, depth_intrinsics)
+
+    def project_onto_vlc_sensor(self, pts3, transform, vlc_side):
+        '''
+        Description:
+        ------------
+        Project the 3d bbox points onto the depth camera.
+        * This function is only for projecting 3d pts from depth 
+          to either of the vlc cameras 
+
+        Params:
+        -------
+        bbox_pts: np.ndarray of shape (3,N) 
+        ''' 
+        if vlc_side not in {"left", "right"}:
+            raise Exception("You naughty coder, you chose an invalid side")
+        vlc_intrinsics = self.kin_chain.calib_info[f"vlc_{vlc_side}"].intrinsics
+        return self._compute_transformed_pts(pts3, transform, vlc_intrinsics)
+
+    def _compute_transformed_pts(self, pts3, transform, intrinsics):
+        pts3 = np.vstack((pts3, np.ones((pts3.shape[1],))))
+        transformed_pts3 = transform @ pts3
+        cam_pts2 = intrinsics @ transformed_pts3
+        cam_pts2 = cam_pts2[0:2,:]/cam_pts2[2,:]
+        return cam_pts2, transformed_pts3
 
 class SensorCalibration:
     '''
@@ -101,10 +143,6 @@ class KinematicChain:
     '''
     def __init__(self, rgb_intrinsics, rgb_extrinsics):
         s1, s2, s3 = get_calibration_from_folder(CALIB_PATH)
-        # self.sensor_calib_lf = s1
-        # self.sensor_calib_rf = s2
-        # self.sensor_calib_depth = s3
-        # self.sensor_calib_rgb = SensorCalibration(rgb_intrinsics, rgb_extrinsics)
         self.valid_frames = {
                 "vlc_left": "sensor", 
                 "vlc_right": "sensor",
@@ -128,7 +166,7 @@ class KinematicChain:
         * pose2 is only used when computing transforms between sensors
         '''
         if self.valid_frames[f1] == "sensor" and self.valid_frames[f2] == "sensor":
-            assert pose2 != None
+            assert (pose2 != None).all()
             return self.sensor2sensor(f1, f2, pose1, pose2)
         elif self.valid_frames[f1] == "world" and self.valid_frames[f2] == "sensor":
             return self.world2sensor(f2, pose1)

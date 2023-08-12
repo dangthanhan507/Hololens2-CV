@@ -63,39 +63,6 @@ class Hl2ssDepthProcessor:
         depth_orig[np.int32(norm_pts[1,:]), np.int32(norm_pts[0,:])] = unnorm_pts[2,:]
         return pv_im, depth_orig
 
-    def project_onto_depth_frame(self, rgb_bbox_pts3):
-        '''
-        Description:
-        ------------
-        Project the 3d bbox points onto the depth camera.
-        * This function is only for projecting 3d pts from rgb
-          to depth
-
-        Params:
-        -------
-        bbox_pts: np.ndarray of shape (3,N) 
-        ''' 
-        rgb_pose = self.k_chain.calib_info["rgb"].extrinsics[:,-1].reshape((4,1))
-        depth_pose = self.k_chain.calib_info["rgb"].extrinsics[:,-1].reshape((4,1))
-        transform = self.k_chain.compute_transform("rgb", "depth", rgb_pose, depth_pose)
-
-        depth_intrinsics = self.k_chain.calib_info["depth"].intrinsics
-        fx, fy = depth_intrinsics[0,0], depth_intrinsics[1,1]
-        cx, cy = depth_intrinsics[0,2], depth_intrinsics[1,2]
-        rgb_bbox_pts3 = np.vstack((rgb_bbox_pts3, np.zeros((rgb_bbox_pts3.shape[1],))))
-        rgb_bbox_pts3[-1,-1] = 1
-        depth_bbox_pts3 = transform @ rgb_bbox_pts3
-        depth_bbox_pts2 = depth_bbox_pts3[0:2,:]/depth_bbox_pts3[2]
-        depth_bbox_pts2[0,:] = (fx * depth_bbox_pts2[0,:]) + cx
-        depth_bbox_pts2[1,:] = (fy * depth_bbox_pts2[1,:]) + cy
-        return depth_bbox_pts2, depth_bbox_pts3
-
-    def project_onto_vlc_lf_sensor(self, depth_bbox_pts3):
-        pass
-        
-    def project_onto_vlc_rf_sensor(self, depth_bbox_pts3):
-        pass
-
 def get_pv_image(data_pv):
     return data_pv.payload.image
 
