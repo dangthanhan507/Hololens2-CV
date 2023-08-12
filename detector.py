@@ -77,6 +77,11 @@ class BBox3D:
         return (self.x1, self.y1, self.z1)
     def getAllCorners(self):
         return np.array([self.x0, self.y0, self.z0, self.x1, self.y1, self.z1])
+    def getCenter(self):
+        #return center of bbox
+        return np.array([[(self.x0 + self.x1)*0.5],
+                         [(self.y0 + self.y1)*0.5],
+                         [(self.z0 + self.z1)*0.5]])
 
 '''
 Custom Bounding Box Class:

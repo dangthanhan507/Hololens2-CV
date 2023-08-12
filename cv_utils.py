@@ -9,6 +9,34 @@
 
 import numpy as np
 from detector import BBox, BBox3D
+from scipy.spatial.transform import Rotation
+def calc_pose_xz(pose, obj_pos):
+    '''
+        Calculate your xz angle from an object given your pose
+        and object position
+
+        obj_pos (3,1)
+        pose (4,4)
+
+    '''
+    x = pose[0,-1]
+    z = pose[2,-1]
+
+    xt = obj_pos[0,0]
+    zt = obj_pos[2,0]
+
+    #calculate pos relative to obj
+    x = x - xt
+    z = z - zt
+
+    angle = np.arctan2(z,x)
+    rot_mat = Rotation.from_rotvec(np.array([0,-angle - np.pi/2,0])).as_matrix()
+
+    pose = np.eye(4)
+    pose[:3,:3] = rot_mat
+    return pose
+
+
 
 def rgbd_getpoints_imshape(depth, pv_intrinsics):
     m,n = depth.shape

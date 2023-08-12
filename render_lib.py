@@ -181,6 +181,11 @@ class DetBox:
         self.objs = objs1 + objs2
         return self.objs
 
+    def setWindowPose(self, pose):
+        self.display_window.objs = setMultiObjectPose(self.display_window.objs, self.display_window.objs_pose, pose)
+
+        self.objs = self.box.objs + self.display_window.objs
+        return self.objs
 
 class CoordinateFrame:
     def __init__(self, offset, size):

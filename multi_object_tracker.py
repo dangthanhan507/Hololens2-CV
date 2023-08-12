@@ -70,7 +70,7 @@ class TrackerObj(KalmanFilter):
         zTL = cz - h/2
         zBR = cz + h/2
 
-        return BBox3D(xTL, yTL, zTL, xBR, yBR, zBR, name="bbox")
+        return BBox3D(xTL, yTL, zTL, xBR, yBR, zBR, name=f"ID:{self.id}")
 
     def increment_age(self):
         self.age += 1

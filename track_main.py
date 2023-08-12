@@ -15,6 +15,8 @@ from hl2ss_render import Hl2ssRender, RenderObject
 from hl2ss_stream import Hl2ssData, Hl2ssStreamWrapper
 from hl2ss_utils import Hl2ssDepthProcessor
 from multi_object_tracker import MultiObjectTracker
+from render_lib import DetBox, setMultiObjectPose
+import traceback
 
 enable = True
 def on_press(key):
@@ -22,29 +24,14 @@ def on_press(key):
     enable = key != keyboard.Key.esc
     return enable
 
-
-if __name__ == '__main__':
-    print('Starting up Server')
-    listener = keyboard.Listener(on_press=on_press)
-    listener.start()
-
-    streamer = Hl2ssStreamWrapper()
-    render = Hl2ssRender()
+def main(streamer, render):
     depth_processor = Hl2ssDepthProcessor(streamer.calib_lt)
     detector = YoloSegment("yolov8n-seg.pt")
     tracker = MultiObjectTracker()
-    streamer.start()
-    render.start()
 
-
-    rotation = [0, 0, 0, 1]
-    scale = np.array([0.1,0.1,0.1])*0.5
-    rgba = [1,1,0,1]
-    detector = YoloDetector("yolov8n.pt")
 
     while enable:
         streamer.waitReady()
-        render.clear()
         data = streamer.getData()
         if data is None:
             print('Skipped')
@@ -70,16 +57,50 @@ if __name__ == '__main__':
             pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
             
             #get info for 3d bboxs
+            print(pts_3d.shape)
             bbox3d = cv_utils.bbox_3d_from_pcd(pts_3d,name='bbox')
             bboxes.append(bbox3d)
 
         print("Num of bboxes:", len(bboxes))
         tracker.track_boxes(bboxes)
 
+        bboxes3d = tracker.getBBoxes()
+
+        pv_pose = data.data_pv.pose.T
+        render.clear()
+        for bbox3d in bboxes3d:
+            center_pt = bbox3d.getCenter()
+            pose = cv_utils.calc_pose_xz(pv_pose, center_pt)
+
+            renderbbox = DetBox(bbox3d,thickness=0.01)
+
+            bbox3d_objs = renderbbox.create_render()
+            # bbox3d_objs = renderbbox.setWindowPose(pose)
+            bbox3d_objs_ids = render.addPrimObjects(bbox3d_objs)
+
         cv2.imshow('D',depth)
         cv2.imshow('PV',rgb)
         cv2.waitKey(1)
         time.sleep(1)
+
+
+if __name__ == '__main__':
+    print('Starting up Server')
+    listener = keyboard.Listener(on_press=on_press)
+    listener.start()
+
+    streamer = Hl2ssStreamWrapper()
+    render = Hl2ssRender()
+    streamer.start()
+    render.start()
+    
+    try:
+        main(streamer,render)
+    except:
+        type, value, _ = sys.exc_info()
+        print(value)
+        traceback.print_exc()
+
 
     streamer.stop()
     listener.join()
