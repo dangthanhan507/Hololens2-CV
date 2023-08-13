@@ -237,7 +237,7 @@ class YoloSegment:
         '''
 
         height, width, _ = image.shape
-        results = self.model.predict(image,boxes=True,conf=0.25)
+        results = self.model.predict(image,boxes=True,conf=0.5)
         # results = self.model.predict(image,boxes=True,conf=0.25,retina_masks=True)
         box_ret = []
         mask_ret = []

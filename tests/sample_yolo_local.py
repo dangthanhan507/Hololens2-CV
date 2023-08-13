@@ -5,6 +5,7 @@ sys.path.append(ROOT_PATH)
 from detector import BBox, YoloDetector
 import cv2
 from pynput import keyboard
+import numpy as np
 
 
 enable = True
@@ -26,6 +27,8 @@ if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
     while enable:
         ret, frame = cap.read()
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)[:,:,np.newaxis]
+        frame = np.dstack((frame,frame,frame))
         if ret:
             bboxes = detector.eval(frame)
             for bbox in bboxes:

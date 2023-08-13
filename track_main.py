@@ -58,8 +58,10 @@ def main(streamer, render):
             
             #get info for 3d bboxs
             print(pts_3d.shape)
-            bbox3d = cv_utils.bbox_3d_from_pcd(pts_3d,name='bbox')
-            bboxes.append(bbox3d)
+            _, num = pts3d.shape
+            if num > 0:
+                bbox3d = cv_utils.bbox_3d_from_pcd(pts_3d,name='bbox')
+                bboxes.append(bbox3d)
 
         print("Num of bboxes:", len(bboxes))
         tracker.track_boxes(bboxes)
