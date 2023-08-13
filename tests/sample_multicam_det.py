@@ -54,6 +54,10 @@ if __name__ == '__main__':
         data_lf = data.data_lf
         data_rf = data.data_rf
 
+        real_depth_img = depth_processor.undistort(depth_processor.get_depthimage(data_lt))
+        real_depth_img = real_depth_img[:,:,np.newaxis].astype(float)
+        real_depth_img /= real_depth_img.max() 
+
         #get rgbd
         rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
         pts3d_image = cv_utils.rgbd_getpoints_imshape(depth, data.color_intrinsics[:3,:3].T)
@@ -69,6 +73,7 @@ if __name__ == '__main__':
         rgb_pose = data_pv.pose.T
         world2vlc_lf_transform = kin_chain.compute_transform("world", "vlc_left", data_lf.pose.T)
         world2rgb_transform = kin_chain.compute_transform("world", "rgb", data_pv.pose.T)
+        world2depth_transform = kin_chain.compute_transform("world", "depth", data_lt.pose.T)
         #detect
 
         masks, boxes = detector.eval(real_lf,filter_cls=['cup'])
@@ -78,20 +83,23 @@ if __name__ == '__main__':
             mask = cv2.resize(mask,lf_pts3d_image.shape[:2][::-1],interpolation=cv2.INTER_AREA)
             pts3d_mask = lf_pts3d_image
 
-            print(mask.shape)
-            print(pts3d_mask.shape)
-
             pts3d = pts3d_mask.reshape(3,-1)
             pts3d = pts3d[:,mask.flatten() > 0]
             pts3d = pts3d[:,pts3d[2,:] > 0]
             pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
             pts_3d = (data_lf.pose.T @ np.linalg.inv(sensor_stack.calib_lf.extrinsics.T) @ pts3d)[:3,:] # world coords
 
+            real_lf = boxes[n].drawBox(real_lf)
+
             rgb_pts2d = sensor_stack.project_onto_sensor(pts_3d, world2rgb_transform, 'rgb')
             rgb_bbox2d = cv_utils.create_bbox(rgb_pts2d, "reproject cup")
-
-            real_lf = boxes[n].drawBox(real_lf)
             rgb = rgb_bbox2d.drawBox(rgb)
+
+            depth_pts2d = sensor_stack.project_onto_depth_frame(pts_3d, world2depth_transform)
+            bbox2d = cv_utils.create_bbox(depth_pts2d, "reproject vlc cup")
+            bbox2d.drawBox(real_depth_img)
+
+            
 
 
 
@@ -114,13 +122,16 @@ if __name__ == '__main__':
             vlc_lf_pts2d[0,:] = real_lf.shape[1] - vlc_lf_pts2d[0,:]
             vlc_lf_bbox2d = cv_utils.create_bbox(vlc_lf_pts2d, "reproject cup")
             real_lf = vlc_lf_bbox2d.drawBox(real_lf)
+
+            depth_pts2d = sensor_stack.project_onto_depth_frame(pts_3d, world2depth_transform)
+            bbox2d = cv_utils.create_bbox(depth_pts2d, "reproject rgb cup")
+            bbox2d.drawBox(real_depth_img)
         
 
 
         cv2.imshow('PV',rgb)
-        cv2.imshow('PVD', depth)
         cv2.imshow('LF', real_lf)
-        cv2.imshow('LF_D', lf_depth)
+        cv2.imshow('LT', real_depth_img)
         cv2.waitKey(1)
         time.sleep(1)
     player.close()
