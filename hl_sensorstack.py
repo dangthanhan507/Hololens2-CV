@@ -44,12 +44,16 @@ class HololensSensorStack:
         self.calib_lf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_LEFTFRONT, os.path.join(CALIB_PATH,"rm_vlc_leftfront"))
         self.calib_rf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_RIGHTFRONT, os.path.join(CALIB_PATH,"rm_vlc_rightfront"))
 
-        
+        self.pv_intrinsics = np.eye(4)
+        self.pv_extrinsics = np.eye(4)
+
     def update_pv_calibration(self, pv_intrinsics, pv_extrinsics):
-        pass
+        self.pv_intrinsics = pv_intrinsics
+        self.pv_extrinsics = pv_extrinsics
 
     def undistort(self, undistort_map, data):
         pass
+
     
     def project_onto_depth_frame(self, pts3, transform):
         '''
@@ -85,6 +89,19 @@ class HololensSensorStack:
         else:
             vlc_intrinsics = self.calib_rf.intrinsics.T
         return self._compute_transformed_pts(pts3, transform, vlc_intrinsics)
+    
+    def project_onto_sensor(self, pts3, transform, sensorname):
+        if sensorname == 'left':
+            intrinsics = self.calib_lf.intrinsics.T
+        elif sensorname == 'right':
+            intrinsics = self.calib_rf.intrinsics.T
+        elif sensorname == 'depth':
+            intrinsics = self.calib_lt.intrinsics.T
+        elif sensorname == 'rgb':
+            intrinsics = self.pv_intrinsics
+        else:
+            intrinsics = np.eye(4)
+        return self._compute_transformed_pts(pts3, transform, intrinsics)
 
     def _compute_transformed_pts(self, pts3, transform, intrinsics):
         pts3 = np.vstack((pts3, np.ones((pts3.shape[1],))))

@@ -36,7 +36,7 @@ if __name__ == '__main__':
     detector = YoloSegment("yolov8n-seg.pt")
     kin_chain = KinematicChain(player.pv_intrinsics, player.pv_extrinsics)
 
-    sensor_stack = HololensSensorStack(kin_chain)
+    sensor_stack = HololensSensorStack()
     depth_processor = Hl2ssDepthProcessor(sensor_stack.calib_lt)
 
     stereo = Hl2ssStereo()
@@ -48,6 +48,7 @@ if __name__ == '__main__':
             continue
 
         kin_chain.update_pv_calibration(data.color_intrinsics.T, data.color_extrinsics.T)
+        sensor_stack.update_pv_calibration(data.color_intrinsics.T, data.color_extrinsics.T)
         data_pv = data.data_pv
         data_lt = data.data_lt
         data_lf = data.data_lf
@@ -63,15 +64,35 @@ if __name__ == '__main__':
         real_rf = np.dstack((rf,rf,rf))
 
         lf, lf_depth = depth_processor.create_rgbd(data_lt, data_lf, sensor_stack.calib_lf.intrinsics,sensor_stack.calib_lf.extrinsics,sensor='lf')
-
+        lf_pts3d_image = cv_utils.rgbd_getpoints_imshape(lf_depth, sensor_stack.calib_lf.intrinsics[:3,:3].T)
 
         rgb_pose = data_pv.pose.T
         world2vlc_lf_transform = kin_chain.compute_transform("world", "vlc_left", data_lf.pose.T)
+        world2rgb_transform = kin_chain.compute_transform("world", "rgb", data_pv.pose.T)
         #detect
 
         masks, boxes = detector.eval(real_lf,filter_cls=['cup'])
         for n in range(len(boxes)):
+            mask = masks[n]
+            mask = mask[:,::-1].T
+            mask = cv2.resize(mask,lf_pts3d_image.shape[:2][::-1],interpolation=cv2.INTER_AREA)
+            pts3d_mask = lf_pts3d_image
+
+            print(mask.shape)
+            print(pts3d_mask.shape)
+
+            pts3d = pts3d_mask.reshape(3,-1)
+            pts3d = pts3d[:,mask.flatten() > 0]
+            pts3d = pts3d[:,pts3d[2,:] > 0]
+            pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
+            pts_3d = (data_lf.pose.T @ np.linalg.inv(sensor_stack.calib_lf.extrinsics.T) @ pts3d)[:3,:] # world coords
+
+            rgb_pts2d = sensor_stack.project_onto_sensor(pts_3d, world2rgb_transform, 'rgb')
+            rgb_bbox2d = cv_utils.create_bbox(rgb_pts2d, "reproject cup")
+
             real_lf = boxes[n].drawBox(real_lf)
+            rgb = rgb_bbox2d.drawBox(rgb)
+
 
 
         masks, boxes = detector.eval(rgb,filter_cls=['cup'])
@@ -98,7 +119,7 @@ if __name__ == '__main__':
 
         cv2.imshow('PV',rgb)
         cv2.imshow('PVD', depth)
-        cv2.imshow('LF', lf)
+        cv2.imshow('LF', real_lf)
         cv2.imshow('LF_D', lf_depth)
         cv2.waitKey(1)
         time.sleep(1)
