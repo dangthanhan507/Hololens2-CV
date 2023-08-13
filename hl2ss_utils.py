@@ -63,6 +63,8 @@ class Hl2ssDepthProcessor:
         depth_orig[np.int32(norm_pts[1,:]), np.int32(norm_pts[0,:])] = unnorm_pts[2,:]
         return pv_im, depth_orig
 
+        
+
 def get_pv_image(data_pv):
     return data_pv.payload.image
 

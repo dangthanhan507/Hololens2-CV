@@ -10,6 +10,17 @@
 import numpy as np
 from detector import BBox, BBox3D
 from scipy.spatial.transform import Rotation
+
+
+def create_bbox(pts2, class_name):
+    xLT = np.min(pts2[0,:])
+    yLT = np.min(pts2[1,:])
+    xBR = np.max(pts2[0,:])
+    yBR = np.max(pts2[1,:])
+
+    bbox2d = BBox(xLT, yLT, xBR, yBR, class_name)
+    return bbox2d
+
 def calc_pose_xz(pose, obj_pos):
     '''
         Calculate your xz angle from an object given your pose

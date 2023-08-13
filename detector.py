@@ -199,7 +199,7 @@ class YoloDetector:
         '''
         for result in results:
             for box in result.boxes:
-                xyxy = box.xyxy[0] # top left, bot right
+                xyxy = box.xyxy[0].cpu().numpy() # top left, bot right
                 c = box.cls #class index
 
                 #use class index to access name in models
