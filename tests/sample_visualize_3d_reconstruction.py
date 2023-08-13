@@ -1,3 +1,9 @@
+'''
+1) Filter out small point clouds
+2) Smooth current meshes
+3) Match current meshes using mot & perform ICP
+'''
+import copy
 import sys
 
 ROOT_PATH = "../Hololens2-CV-Server/"
@@ -8,17 +14,16 @@ import time
 import cv2
 import numpy as np
 import open3d as o3d
+from open3d.visualization import Visualizer
 from pynput import keyboard
 
 import cv_utils
 from detector import BBox, YoloSegment, preprocess_bbox_IOU
-from hl2ss_map import Hl2ssMapping
 from hl2ss_read import Hl2ssOfflineStreamer
 from hl2ss_stereo import Hl2ssStereo
 from hl2ss_utils import Hl2ssDepthProcessor
 from hl_sensorstack import HololensSensorStack, KinematicChain
 from multi_object_tracker import MultiObjectTracker
-from render_lib import RenderBBox
 
 enable = True
 def on_press(key):
@@ -35,12 +40,49 @@ def create_bbox(pts2, class_name):
     bbox2d = BBox(xLT, yLT, xBR, yBR, class_name)
     return bbox2d
 
+def create_transform_matrix_from_z(z):
+    """ Return transform 4x4 transformation matrix given a Z value """
+    result = np.identity(4)
+    result[2,3] = z # Change the z
+    
+    return result
+
+def dummy_test():
+    # Create Open3d visualization window
+    vis = Visualizer()
+    vis.create_window()
+
+    # create sphere geometry
+    sphere1 = o3d.geometry.TriangleMesh.create_sphere()
+    vis.add_geometry(sphere1)
+
+    # create coordinate frame
+    coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame()
+    vis.add_geometry(coordinate_frame)
+
+    prev_tf = None
+    for curr_z in np.arange(0.5, 15.0, 0.005):
+        print(curr_z)
+        # return sphere1 to original position (0,0,0)
+        if prev_tf is not None:
+            sphere1.transform(np.linalg.inv(prev_tf))
+
+        # transform bazed on curr_z tf
+        curr_tf = create_transform_matrix_from_z(curr_z)
+        sphere1.transform(curr_tf)
+
+        prev_tf = curr_tf
+
+        vis.update_geometry(sphere1)
+        vis.poll_events()
+        vis.update_renderer()
+
 if __name__ == '__main__':
     print('Starting up Player')
     listener = keyboard.Listener(on_press=on_press)
     listener.start()
 
-    player = Hl2ssOfflineStreamer('./offline_script0',opts={"vlc_front": True})
+    player = Hl2ssOfflineStreamer('./offline_script5',opts={"vlc_front": True})
     player.open()
 
     detector = YoloSegment("yolov8n-seg.pt")
@@ -50,7 +92,10 @@ if __name__ == '__main__':
     sensor_stack = HololensSensorStack()
     depth_processor = Hl2ssDepthProcessor(sensor_stack.calib_lt)
     stereo = Hl2ssStereo()
- 
+
+    vis = Visualizer()
+    is_vis_window_created = False
+
     while enable:
         data = player.getData()
         if data is None:
@@ -59,28 +104,17 @@ if __name__ == '__main__':
         kin_chain.update_pv_calibration(data.color_intrinsics.T, data.color_extrinsics.T)
         data_pv = data.data_pv
         data_lt = data.data_lt
-        data_lf = data.data_lf
-        data_rf = data.data_rf
 
         rgb, depth = depth_processor.create_rgbd(data_lt, data_pv, data.color_intrinsics, data.color_extrinsics)
         real_depth_img = depth_processor.undistort(depth_processor.get_depthimage(data_lt))
         real_depth_img = real_depth_img[:,:,np.newaxis].astype(float)
         real_depth_img /= real_depth_img.max() 
         pts3d_image = cv_utils.rgbd_getpoints_imshape(depth, data.color_intrinsics[:3,:3].T)
-        masks, boxes = detector.eval(rgb, filter_cls=["toilet"])
+        masks, boxes = detector.eval(rgb, filter_cls=["cup", "bottle"])
         da_cool_kids = preprocess_bbox_IOU(boxes)
 
-        lf = data.data_lf.payload
-        rf = data.data_rf.payload
-        real_lf = lf[:,:,np.newaxis]
-        real_rf = rf[:,:,np.newaxis]
-
-        bboxes = []
         rgb_pose = data_pv.pose.T
         depth_pose = data_lt.pose.T
-        world2depth_transform = kin_chain.compute_transform("world", "depth", depth_pose)
-        world2vlc_lf_transform = kin_chain.compute_transform("world", "vlc_left", data_lf.pose.T)
-        world2vlc_rf_transform = kin_chain.compute_transform("world", "vlc_right", data_rf.pose.T)
         for n in range(len(da_cool_kids)):
             if not da_cool_kids[n]:
                 continue
@@ -93,35 +127,41 @@ if __name__ == '__main__':
             pts3d = pts3d[:,pts3d[2,:] > 0]
             pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
             pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
-            
-            #get info for 3d bboxs
-            bbox3d = cv_utils.bbox_3d_from_pcd(pts_3d,name='bbox')
-            bboxes.append(bbox3d)
+
+            if not is_vis_window_created:
+                is_vis_window_created = True
+                vis.create_window()
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(pts_3d.T)
+            # Alpha Mesh
+            mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(pcd, alpha=0.03)
+            mesh.compute_vertex_normals()
+            mesh.filter_smooth_laplacian(100)
+
+            # remove outliers
+            with o3d.utility.VerbosityContextManager(
+                    o3d.utility.VerbosityLevel.Debug) as cm:
+                triangle_clusters, cluster_n_triangles, cluster_area = (
+                    mesh.cluster_connected_triangles())
+            triangle_clusters = np.asarray(triangle_clusters)
+            cluster_n_triangles = np.asarray(cluster_n_triangles)
+            cluster_area = np.asarray(cluster_area)
+            mesh_0 = copy.deepcopy(mesh)
+            triangles_to_remove = cluster_n_triangles[triangle_clusters] < 100
+            mesh_0.remove_triangles_by_mask(triangles_to_remove)
+
+            vis.add_geometry(mesh_0)
+            vis.update_geometry(mesh_0)
+            vis.poll_events()
+            vis.update_renderer()
 
             rgb = boxes[n].drawBox(rgb)
-
-            depth_pts2d = sensor_stack.project_onto_depth_frame(pts_3d, world2depth_transform)
-            bbox2d = create_bbox(depth_pts2d, "toilet")
-            bbox2d.drawBox(real_depth_img)
-
-            vlc_lf_pts2d = sensor_stack.project_onto_vlc_sensor(pts_3d, world2vlc_lf_transform, "left")
-            vlc_lf_bbox2d = create_bbox(vlc_lf_pts2d, "toilet")
-            vlc_lf_bbox2d.drawBox(real_lf)
-
-            vlc_rf_pts2d = sensor_stack.project_onto_vlc_sensor(pts_3d, world2vlc_rf_transform, "right")
-            vlc_rf_bbox2d = create_bbox(vlc_rf_pts2d, "toilet")
-            vlc_rf_bbox2d.drawBox(real_rf)
-
-        tracker.track_boxes(bboxes)
-        bbox3d_pts = tracker.get_bbox_3d_pts()
-
-
-        cv2.imshow('LF', real_lf)
-        cv2.imshow('RF', real_rf)
+            
         cv2.imshow('D',real_depth_img)
         cv2.imshow('PV',rgb)
         cv2.waitKey(1)
         time.sleep(1)
+    vis.destroy_window()
     player.close()
     listener.join()
     print('Finishing up Player')
