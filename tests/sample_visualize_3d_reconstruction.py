@@ -1,3 +1,9 @@
+'''
+1) Filter out small point clouds
+2) Smooth current meshes
+3) Match current meshes using mot & perform ICP
+'''
+import copy
 import sys
 
 ROOT_PATH = "../Hololens2-CV-Server/"
@@ -127,15 +133,25 @@ if __name__ == '__main__':
                 vis.create_window()
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(pts_3d.T)
-            normals = np.zeros_like(np.asarray(pcd.points))
-            pcd.normals = o3d.utility.Vector3dVector(normals)
-            
             # Alpha Mesh
             mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(pcd, alpha=0.03)
             mesh.compute_vertex_normals()
+            mesh.filter_smooth_laplacian(100)
 
-            vis.add_geometry(mesh)
-            vis.update_geometry(mesh)
+            # remove outliers
+            with o3d.utility.VerbosityContextManager(
+                    o3d.utility.VerbosityLevel.Debug) as cm:
+                triangle_clusters, cluster_n_triangles, cluster_area = (
+                    mesh.cluster_connected_triangles())
+            triangle_clusters = np.asarray(triangle_clusters)
+            cluster_n_triangles = np.asarray(cluster_n_triangles)
+            cluster_area = np.asarray(cluster_area)
+            mesh_0 = copy.deepcopy(mesh)
+            triangles_to_remove = cluster_n_triangles[triangle_clusters] < 100
+            mesh_0.remove_triangles_by_mask(triangles_to_remove)
+
+            vis.add_geometry(mesh_0)
+            vis.update_geometry(mesh_0)
             vis.poll_events()
             vis.update_renderer()
 
