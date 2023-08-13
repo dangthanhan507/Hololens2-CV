@@ -42,8 +42,11 @@ class Hl2ssDepthProcessor:
         lt_to_world = hl2ss_3dcv.camera_to_rignode(self.calibration.extrinsics) @ hl2ss_3dcv.reference_to_world(data_lt.pose)
         return hl2ss_3dcv.transform(lt_points, lt_to_world)
     
-    def create_rgbd(self, data_lt, data_pv, pv_intrinsics, pv_extrinsics):
-        pv_im = get_pv_image(data_pv)
+    def create_rgbd(self, data_lt, data_pv, pv_intrinsics, pv_extrinsics, sensor='pv'):
+        if sensor == 'pv':
+            pv_im = get_pv_image(data_pv)
+        else:
+            pv_im = np.dstack((data_pv.payload,data_pv.payload,data_pv.payload))
         height,width,_ = pv_im.shape
 
         depth = self.get_depthimage(data_lt)
@@ -62,6 +65,8 @@ class Hl2ssDepthProcessor:
         depth_orig = np.zeros((height,width))
         depth_orig[np.int32(norm_pts[1,:]), np.int32(norm_pts[0,:])] = unnorm_pts[2,:]
         return pv_im, depth_orig
+
+        
 
 def get_pv_image(data_pv):
     return data_pv.payload.image

@@ -34,6 +34,24 @@ class Hl2ssStereo:
         #whatever dimension this is in, will be the dimension of the point clouds
         #NOTE: assumed dimension is in meters
         self.stereo_baseline = np.linalg.norm(self.stereo_calibration.t)
+     
+        minDisp = -1
+        maxDisp = 10
+        numDisp = maxDisp - minDisp
+        blockSize = 15
+        self.stereoL = cv2.StereoSGBM_create(minDisparity=minDisp,
+                                             numDisparities=numDisp,
+                                             blockSize=blockSize,
+                                             uniquenessRatio=5,
+                                             speckleWindowSize=5,
+                                             speckleRange=5,
+                                             disp12MaxDiff=2)
+        self.stereoR = cv2.ximgproc.createRightMatcher(self.stereoL)
+
+        self.wlsFilter = cv2.ximgproc.createDisparityWLSFilter(self.stereoL)
+        self.wlsFilter.setLambda(8000)
+        self.wlsFilter.setSigmaColor(2.0)
+
 
     def undistort_stereo(self, image_lf, image_rf):
         '''
@@ -64,6 +82,11 @@ class Hl2ssStereo:
         image_l = hl2ss_3dcv.rm_vlc_to_rgb(image_lf)
         image_r = hl2ss_3dcv.rm_vlc_to_rgb(image_rf)
 
-        image = np.hstack((image_l, image_r))
+        image = np.vstack((image_l, image_r))
         return image
     
+    def stereo_depth(self, lf, rf):
+        dispL = self.stereoL.compute(rf,lf)
+        dispR = self.stereoR.compute(lf,rf)
+        disp = self.wlsFilter.filter(dispL,rf,dispR,lf) / 16.0
+        return disp
