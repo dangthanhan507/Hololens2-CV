@@ -62,44 +62,44 @@ if __name__ == '__main__':
         real_lf = np.dstack((lf,lf,lf))
         real_rf = np.dstack((rf,rf,rf))
 
-
-        disp_map = stereo.stereo_depth(lf,rf)
+        lf, lf_depth = depth_processor.create_rgbd(data_lt, data_lf, sensor_stack.calib_lf.intrinsics,sensor_stack.calib_lf.extrinsics,sensor='lf')
 
 
         rgb_pose = data_pv.pose.T
         world2vlc_lf_transform = kin_chain.compute_transform("world", "vlc_left", data_lf.pose.T)
         #detect
 
-        # masks, boxes = detector.eval(real_lf,filter_cls=['cup'])
-        # for n in range(len(boxes)):
-        #     real_lf = boxes[n].drawBox(real_lf)
+        masks, boxes = detector.eval(real_lf,filter_cls=['cup'])
+        for n in range(len(boxes)):
+            real_lf = boxes[n].drawBox(real_lf)
 
 
-        # masks, boxes = detector.eval(rgb,filter_cls=['cup'])
-        # for n in range(len(boxes)):
-        #     mask = masks[n]
-        #     mask = cv2.resize(mask,pts3d_image.shape[:2][::-1],interpolation=cv2.INTER_AREA)
-        #     pts3d_mask = pts3d_image
+        masks, boxes = detector.eval(rgb,filter_cls=['cup'])
+        for n in range(len(boxes)):
+            mask = masks[n]
+            mask = cv2.resize(mask,pts3d_image.shape[:2][::-1],interpolation=cv2.INTER_AREA)
+            pts3d_mask = pts3d_image
 
-        #     pts3d = pts3d_mask.reshape(3,-1)
-        #     pts3d = pts3d[:,mask.flatten() > 0]
-        #     pts3d = pts3d[:,pts3d[2,:] > 0]
-        #     pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
-        #     pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
+            pts3d = pts3d_mask.reshape(3,-1)
+            pts3d = pts3d[:,mask.flatten() > 0]
+            pts3d = pts3d[:,pts3d[2,:] > 0]
+            pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
+            pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
 
-        #     rgb = boxes[n].drawBox(rgb)
+            rgb = boxes[n].drawBox(rgb)
 
-        #     vlc_lf_pts2d = sensor_stack.project_onto_vlc_sensor(pts_3d, world2vlc_lf_transform, "left")
-        #     vlc_lf_pts2d = vlc_lf_pts2d[::-1,:]
-        #     vlc_lf_pts2d[0,:] = real_lf.shape[1] - vlc_lf_pts2d[0,:]
-        #     vlc_lf_bbox2d = cv_utils.create_bbox(vlc_lf_pts2d, "reproject cup")
-        #     real_lf = vlc_lf_bbox2d.drawBox(real_lf)
+            vlc_lf_pts2d = sensor_stack.project_onto_vlc_sensor(pts_3d, world2vlc_lf_transform, "left")
+            vlc_lf_pts2d = vlc_lf_pts2d[::-1,:]
+            vlc_lf_pts2d[0,:] = real_lf.shape[1] - vlc_lf_pts2d[0,:]
+            vlc_lf_bbox2d = cv_utils.create_bbox(vlc_lf_pts2d, "reproject cup")
+            real_lf = vlc_lf_bbox2d.drawBox(real_lf)
         
 
 
-        cv2.imshow('LF', real_lf)
         cv2.imshow('PV',rgb)
-        cv2.imshow('DISP', disp_map)
+        cv2.imshow('PVD', depth)
+        cv2.imshow('LF', lf)
+        cv2.imshow('LF_D', lf_depth)
         cv2.waitKey(1)
         time.sleep(1)
     player.close()
