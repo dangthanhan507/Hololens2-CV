@@ -47,7 +47,7 @@ if __name__ == '__main__':
     tracker = MultiObjectTracker()
     kin_chain = KinematicChain(player.pv_intrinsics, player.pv_extrinsics) 
 
-    sensor_stack = HololensSensorStack(kin_chain)
+    sensor_stack = HololensSensorStack()
     depth_processor = Hl2ssDepthProcessor(sensor_stack.calib_lt)
     stereo = Hl2ssStereo()
  

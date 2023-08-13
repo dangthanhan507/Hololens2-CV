@@ -36,14 +36,13 @@ Sensor Stack Description:
     -> PV camera (30fps)
 '''
 class HololensSensorStack:
-    def __init__(self, kin_chain):
+    def __init__(self):
         self.calib_lt = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_DEPTH_LONGTHROW, os.path.join(CALIB_PATH,"rm_depth_longthrow"))
         uv2xy = hl2ss_3dcv.compute_uv2xy(self.calib_lt.intrinsics, hl2ss.Parameters_RM_DEPTH_LONGTHROW.WIDTH, hl2ss.Parameters_RM_DEPTH_LONGTHROW.HEIGHT)
         self.xy1, self.lt_scale = hl2ss_3dcv.rm_depth_compute_rays(uv2xy, self.calib_lt.scale)
 
         self.calib_lf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_LEFTFRONT, os.path.join(CALIB_PATH,"rm_vlc_leftfront"))
         self.calib_rf = hl2ss_3dcv._load_calibration_rm(hl2ss.StreamPort.RM_VLC_RIGHTFRONT, os.path.join(CALIB_PATH,"rm_vlc_rightfront"))
-        self.kin_chain = kin_chain
 
         
     def update_pv_calibration(self, pv_intrinsics, pv_extrinsics):
@@ -64,9 +63,7 @@ class HololensSensorStack:
         -------
         bbox_pts: np.ndarray of shape (3,N) 
         ''' 
-        depth_intrinsics = self.kin_chain.calib_info["depth"].intrinsics
-        print("Depth Intrinsics:")
-        print(depth_intrinsics)
+        depth_intrinsics = self.calib_lt.intrinsics.T
         return self._compute_transformed_pts(pts3, transform, depth_intrinsics)
 
     def project_onto_vlc_sensor(self, pts3, transform, vlc_side):
@@ -83,7 +80,10 @@ class HololensSensorStack:
         ''' 
         if vlc_side not in {"left", "right"}:
             raise Exception("You naughty coder, you chose an invalid side")
-        vlc_intrinsics = self.kin_chain.calib_info[f"vlc_{vlc_side}"].intrinsics
+        elif vlc_side == "left":
+            vlc_intrinsics = self.calib_lf.intrinsics.T
+        else:
+            vlc_intrinsics = self.calib_rf.intrinsics.T
         return self._compute_transformed_pts(pts3, transform, vlc_intrinsics)
 
     def _compute_transformed_pts(self, pts3, transform, intrinsics):
