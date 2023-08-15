@@ -10,6 +10,28 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 
+def IOU_3D(bbox1, bbox2):
+    x1TL, y1TL, z1TL = bbox1.getTL()
+    x1BR, y1BR, z1BR = bbox1.getBR()
+
+    x2TL, y2TL, z2TL = bbox2.getTL()
+    x2BR, y2BR, z2BR = bbox2.getBR()
+
+    biggestLX = max(x1TL, x2TL)
+    smallestRX = min(x1BR, x2BR)
+
+    biggestLY = max(y1TL, y2TL)
+    smallestRY = min(y1BR, y2BR)
+
+    biggestLZ = max(z1TL, z2TL)
+    smallestRZ = min(z1BR, z2BR)
+
+    area = (smallestRX - biggestLX) * (smallestRY - biggestLY) * (smallestRZ - biggestLZ)
+
+    area1 = (x1BR - x1TL) * (y1BR - y1TL) * (z1BR - z1TL)
+    area2 = (x2BR - x2TL) * (y2BR - y2TL) * (z2BR - z2TL)
+
+    return area / max(area1,area2)
 
 def IOU(bbox1, bbox2):
     '''
@@ -29,9 +51,13 @@ def IOU(bbox1, bbox2):
     smallestYB = min(y1BR, y2BR)
 
     area = (smallestRX - biggestLX) * (smallestYB - biggestYT)
-    return area
 
-def preprocess_bbox_IOU(bboxes, thresh=100):
+    area1 = (x1BR - x1TL) * (y1BR - y1TL)
+    area2 = (x2BR - x2TL) * (y2BR - y2TL)
+
+    return area / max(area1,area2)
+
+def preprocess_bbox_IOU(bboxes, thresh=0.4):
     da_cool_kids = [True] * len(bboxes)
     for i in range(len(bboxes)):
         for j in range(i + 1, len(bboxes)):
