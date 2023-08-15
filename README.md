@@ -5,7 +5,7 @@ Server/Computer stores all logic and data structures while the Hololens acts as 
 ## Current Direction:
 - Adding Object Tracking (DONE)
 - Adding Multi-Modal Tracking/Detection
-
+- Adding hand-pose interaction w/ Object Tracking
 
 ## Credits
 - A lot of code was used from and built on top of the Hl2ss github repository. 
