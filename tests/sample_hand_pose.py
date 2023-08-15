@@ -85,20 +85,16 @@ if __name__ == '__main__':
         if not (data.data_si.si is None):
             if not (data.data_si.hand_left is None):
                 left_pos = data.data_si.hand_left.positions
-                print(left_pos)
-                print()
-
                 hand_vis.visualize_lefthand(left_pos)
 
             if not (data.data_si.hand_right is None):
                 right_pos = data.data_si.hand_right.positions
-                # print(right_pos)
                 hand_vis.visualize_righthand(right_pos)
 
 
-        cv2.imshow('LT',lt / lt.max())
-        cv2.imshow('PV',pv[:,:,::-1])
-        cv2.waitKey(1)
+        # cv2.imshow('LT',lt / lt.max())
+        # cv2.imshow('PV',pv[:,:,::-1])
+        # cv2.waitKey(1)
 
     streamer.stop()
     listener.join()
