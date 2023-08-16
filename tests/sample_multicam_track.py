@@ -129,7 +129,6 @@ if __name__ == '__main__':
                     break
             if skip:
                 continue
-                    
 
 
             bbox3d = cv_utils.bbox_3d_from_pcd(pts_3d,name='bbox')

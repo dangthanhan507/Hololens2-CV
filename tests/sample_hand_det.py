@@ -128,10 +128,6 @@ if __name__ == '__main__':
             pts3d = np.vstack((pts3d, np.ones((1,pts3d.shape[1]))))
             pts_3d = (data_pv.pose.T @ np.linalg.inv(data.color_extrinsics.T) @ pts3d)[:3,:]
 
-            
-            # bbox3d = cv_utils.bbox_3d_from_pcd(pts_3d,name='bbox')
-            # bboxes.append(bbox3d)
-
             if left_pos is not None:
                 #NOTE: 0.1 is a good distance away from object
 
@@ -143,8 +139,6 @@ if __name__ == '__main__':
 
             rgb = boxes[n].drawBox(rgb)
 
-        # #track the 3d bounding boxes
-        # tracker.track_boxes(bboxes)
 
         cv2.imshow("RGB", rgb)
         cv2.waitKey(1)

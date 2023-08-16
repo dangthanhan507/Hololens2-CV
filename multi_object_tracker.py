@@ -245,3 +245,72 @@ class MultiObjectTracker:
     
     def getBBoxes(self):
         return [obj.state_to_bbox() for obj in self.objs]
+
+
+class InteractableObject(TrackerObj):
+    def __init__(self):
+        pass
+
+class InteractableMOT(MultiObjectTracker):
+    '''
+        Tracking Logic:
+        ===============
+
+        Hand-Tracking:
+        ==============
+            left hand: [0,.... maxId] 0 means holds nothing... anything else means it's holding that object
+            right hand: [0,.... maxId]
+
+    '''
+    def __init__(self):
+        #TODO: make some of these easily set by user
+        super(MultiObjectTracker).__init__()
+
+        self.left_pos = None
+        self.left_holding = 0
+
+        self.right_pos = None
+        self.right_holding = 0
+
+
+
+    def track_hands(self, left_hand, right_hand):
+
+        #update hand positions
+        if left_hand is not None:
+            self.left_pos = left_hand.T.mean(axis=1).reshape((3,1))
+        if right_hand is not None:
+            self.right_pos = right_hand.T.mean(axis=1).reshape((3,1))
+
+        #update tracked detections
+        if self.left_holding == 0 or self.right_holding == 0:
+            for i in range(len(self.objs)):
+                obj = self.objs[i]
+                if self.left_holding == 0 and self.left_pos is not None and \
+                    np.linalg.norm(self.left_pos - obj.state_to_bbox().getCenter()) < 0.1:
+                    self.left_holding = obj.id
+                    break
+                elif self.right_holding == 0 and self.right_pos is not None and \
+                    np.linalg.norm(self.right_pos - obj.state_to_bbox().getCenter()) < 0.1:
+                    self.right_holding = obj.id
+                    break
+        
+        if self.left_holding != 0 or self.right_holding != 0:
+            
+
+
+    def trackInteraction(self, left_hand, right_hand):
+        '''
+            Description:
+            -----------
+            in addition
+
+            Parameters:
+            -----------
+            @params left_hand: (3xN) set of points representing left hand detected or it can be a None value
+            @params right_hand: (3xN) set of points representing right hand detected or it can be a None value
+        '''
+        if left_hand is not None:
+            pass
+        if right_hand is not None:
+            pass
