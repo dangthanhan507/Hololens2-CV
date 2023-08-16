@@ -273,6 +273,45 @@ class InteractableMOT(MultiObjectTracker):
         self.right_holding = 0
 
 
+    def parse_boxes(self, bboxes3d):
+        '''
+            Ignore any bboxes close to hand when it is already grabbed (most likely it is the object grabbed).
+        '''
+        if self.left_holding != 0 or self.right_holding != 0:
+            newBboxes3d = []
+            for bbox3d in bboxes3d:
+                if np.linalg.norm(self.left_pos - bbox3d.getCenter()) < 0.1:
+                    continue
+                if np.linalg.norm(self.right_pos - bbox3d.getCenter()) < 0.1:
+                    continue
+
+                newBboxes3d.append(bbox3d)
+        else:
+            newBboxes3d = bboxes3d
+        return newBboxes3d
+    
+    def ungrab_cost(self, pts3d):
+        '''
+            solve optimization problem to get the normal vector corresponding to the plane
+        '''
+        mean_pts = pts3d.mean(axis=1)
+        prel = pts3d - mean_pts.reshape((3,1))
+        W = prel @ prel.T
+        w, V = np.linalg.eigh(W)
+        R = np.fliplr(V)
+        normal_vec = R[:,2].reshape((3,1))
+
+        #returns the sum of the dot products between normal vec and its pts (should be near zero)
+        return np.abs(normal_vec.T @ prel).sum()
+    
+    def check_letgo(self, left_hand, right_hand):
+        if self.left_holding != 0 and self.ungrab_cost(left_hand) < 0.1:
+            #set object grab to nothing
+            self.left_holding = 0
+
+        if self.right_holding != 0 and self.ungrab_cost(right_hand) < 0.1:
+            #set object grab to nothing
+            self.right_holding = 0
 
     def track_hands(self, left_hand, right_hand):
 
@@ -296,7 +335,7 @@ class InteractableMOT(MultiObjectTracker):
                     break
         
         if self.left_holding != 0 or self.right_holding != 0:
-            
+            pass
 
 
     def trackInteraction(self, left_hand, right_hand):

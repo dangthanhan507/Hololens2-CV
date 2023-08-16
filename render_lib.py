@@ -217,3 +217,52 @@ class CoordinateFrame:
         zaxis = RenderObject('cube', pos, rotation, scale, rgba)
 
         return [xaxis,yaxis,zaxis]
+    
+
+class HandRenderer:
+    def __init__(self,renderer):
+        self.renderer = renderer
+
+        self.lefthand_ids = []
+        self.righthand_ids = []
+
+        self.lefthand_objs = []
+        self.righthand_objs = []
+    def visualize_lefthand(self, left_pos):
+        N = left_pos.shape[0]
+        if len(self.lefthand_ids) == 0:
+            for i in range(N):
+                pos = left_pos[i,:].tolist()
+                # print(pos)
+                rotation = [0,0,0,1]
+                scale = [0.01,0.01,0.01]
+                rgba = [1,1,1,1]
+                pos[2] *= -1
+
+                self.lefthand_objs.append(RenderObject('sphere',pos,rotation,scale,rgba))
+            self.lefthand_ids = self.renderer.addPrimObjects(self.lefthand_objs)
+        else:
+            for i in range(N):
+                pos = left_pos[i,:].tolist()
+                pos[2] *= -1
+                self.lefthand_objs[i].pos = pos
+            self.renderer.transformObjs(self.lefthand_ids,self.lefthand_objs)
+    def visualize_righthand(self, right_pos):
+        N = right_pos.shape[0]
+        if len(self.righthand_ids) == 0:
+            for i in range(N):
+                pos = right_pos[i,:].tolist()
+                # print(pos)
+                rotation = [0,0,0,1]
+                scale = [0.01,0.01,0.01]
+                rgba = [1,1,1,1]
+                pos[2] *= -1
+
+                self.righthand_objs.append(RenderObject('sphere',pos,rotation,scale,rgba))
+            self.righthand_ids = self.renderer.addPrimObjects(self.righthand_objs)
+        else:
+            for i in range(N):
+                pos = right_pos[i,:].tolist()
+                pos[2] *= -1
+                self.righthand_objs[i].pos = pos
+            self.renderer.transformObjs(self.righthand_ids,self.righthand_objs)
