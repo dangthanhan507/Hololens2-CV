@@ -83,7 +83,7 @@ class MultiObjectTracker:
 
         self.gate_matrix_thresh1 = 10 
 
-    def initialize_object(self, bbox):
+    def initialize_object(self, bbox, id):
         '''
         Description:
         ------------
@@ -102,8 +102,8 @@ class MultiObjectTracker:
         track_cov    = np.eye(9)
         
         #assign id
-        id_ = self.id_ctr
-        self.id_ctr += 1
+        id_ = id
+        # self.id_ctr += 1
         
         #first 3 rows, last 3 column
         # A = np.eye(8)
@@ -169,7 +169,8 @@ class MultiObjectTracker:
         #initialize any unmatched detections as a new track
         for i in range(len(bboxes)):
             if i not in det_matched:
-                self.initialize_object(bboxes[i])
+                self.initialize_object(bboxes[i], self.id_ctr)
+                self.id_ctr += 1
 
 
         # update objs
@@ -273,6 +274,25 @@ class InteractableMOT(MultiObjectTracker):
         self.right_holding = 0
 
 
+        self.unmatched_leftletgo = 0
+        self.unmatched_leftpos   = self.left_pos
+        self.unmatched_rightletgo = 0
+        self.unmatched_rightpos   = self.right_pos
+
+    def preprocess_bboxes(self, bboxes3d):
+        #check if we let go of an object earlier and need to reassign the position of a particular object id
+
+        newBboxes3d = []
+        for bbox3d in bboxes3d:
+            if self.unmatched_leftletgo != 0 and np.linalg.norm(self.unmatched_leftpos - bbox3d.getCenter()) < 0.1:
+                self.objs[self.unmatched_leftletgo] = self.initialize_object(bbox3d, self.unmatched_leftletgo)
+                continue
+            if self.unmatched_rightletgo != 0 and np.linalg.norm(self.unmatched_rightpos - bbox3d.getCenter()) < 0.1:
+                self.objs[self.unmatched_rightletgo] = self.initialize_object(bbox3d, self.unmatched_rightletgo)
+                continue
+            newBboxes3d.append(bbox3d)
+        return newBboxes3d
+
     def parse_boxes(self, bboxes3d):
         '''
             Ignore any bboxes close to hand when it is already grabbed (most likely it is the object grabbed).
@@ -306,10 +326,20 @@ class InteractableMOT(MultiObjectTracker):
     
     def check_letgo(self, left_hand, right_hand):
         if self.left_holding != 0 and self.ungrab_cost(left_hand) < 0.1:
+            
+            #assign the id so we use that info to assign bboxes
+            self.unmatched_leftletgo = self.left_holding
+            self.unmatched_leftpos   = self.left_pos
+
             #set object grab to nothing
             self.left_holding = 0
 
         if self.right_holding != 0 and self.ungrab_cost(right_hand) < 0.1:
+            
+            #assign the id so we use that info to assign bboxes
+            self.unmatched_rightletgo = self.right_holding
+            self.unmatched_rightpos   = self.right_pos
+
             #set object grab to nothing
             self.right_holding = 0
 
