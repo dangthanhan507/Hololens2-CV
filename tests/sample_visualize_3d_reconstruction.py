@@ -1,8 +1,3 @@
-'''
-1) Filter out small point clouds
-2) Smooth current meshes
-3) Match current meshes using mot & perform ICP
-'''
 import copy
 import pickle
 import sys
@@ -19,9 +14,8 @@ from open3d.visualization import Visualizer
 from pynput import keyboard
 
 import cv_utils
-from detector import BBox, YoloSegment, preprocess_bbox_IOU
+from detector import YoloSegment, preprocess_bbox_IOU
 from hl2ss_read import Hl2ssOfflineStreamer
-from hl2ss_stereo import Hl2ssStereo
 from hl2ss_utils import Hl2ssDepthProcessor
 from hl_sensorstack import HololensSensorStack, KinematicChain
 from multi_object_tracker import MultiObjectTracker
@@ -32,15 +26,6 @@ def on_press(key):
     enable = key != keyboard.Key.esc
     return enable
 
-def create_bbox(pts2, class_name):
-    xLT = np.min(pts2[0,:])
-    yLT = np.min(pts2[1,:])
-    xBR = np.max(pts2[0,:])
-    yBR = np.max(pts2[1,:])
-
-    bbox2d = BBox(xLT, yLT, xBR, yBR, class_name)
-    return bbox2d
-
 def create_transform_matrix_from_z(z):
     """ Return transform 4x4 transformation matrix given a Z value """
     result = np.identity(4)
@@ -48,7 +33,7 @@ def create_transform_matrix_from_z(z):
     
     return result
 
-def dummy_test():
+def sample_test():
     # Create Open3d visualization window
     vis = Visualizer()
     vis.create_window()
@@ -92,21 +77,16 @@ if __name__ == '__main__':
 
     sensor_stack = HololensSensorStack()
     depth_processor = Hl2ssDepthProcessor(sensor_stack.calib_lt)
-    stereo = Hl2ssStereo()
+    # stereo = Hl2ssStereo()
 
-    vis = Visualizer()
-    maybe_viz_during_script = False
-    is_vis_window_created = False
     n_skips = 0
     all_3d_pts = None
 
     while enable:
         data = player.getData()
         if data is None:
-            print("N_skips increased!!!", n_skips)
             n_skips += 1
             if n_skips >= 20:
-                print("breaking")
                 break
             continue
 
@@ -141,41 +121,6 @@ if __name__ == '__main__':
             else:
                 all_3d_pts = np.hstack((all_3d_pts, pts_3d))
 
-            if maybe_viz_during_script:
-                if not is_vis_window_created:
-                    is_vis_window_created = True
-                    vis.create_window()
-
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(pts_3d.T)
-
-                # remove outlier points
-                voxel_down_pcd = pcd.voxel_down_sample(voxel_size=0.02) # 0.01
-                cl, ind = voxel_down_pcd.remove_radius_outlier(nb_points=16, radius=0.05)
-                voxel_down_pcd = cl.select_by_index(ind)
-
-                # Alpha Mesh
-                mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(voxel_down_pcd, alpha=0.03)
-                mesh.compute_vertex_normals()
-                mesh.filter_smooth_laplacian(100)
-
-                # remove outlier meshes
-                with o3d.utility.VerbosityContextManager(
-                        o3d.utility.VerbosityLevel.Debug) as cm:
-                    triangle_clusters, cluster_n_triangles, cluster_area = (
-                        mesh.cluster_connected_triangles())
-                triangle_clusters = np.asarray(triangle_clusters)
-                cluster_n_triangles = np.asarray(cluster_n_triangles)
-                cluster_area = np.asarray(cluster_area)
-                mesh_0 = copy.deepcopy(mesh)
-                triangles_to_remove = cluster_n_triangles[triangle_clusters] < 100
-                mesh_0.remove_triangles_by_mask(triangles_to_remove)
-
-                vis.add_geometry(mesh_0)
-                vis.update_geometry(mesh_0)
-                vis.poll_events()
-                vis.update_renderer()
-
             rgb = boxes[n].drawBox(rgb)
             
         cv2.imshow('D',real_depth_img)
@@ -183,38 +128,37 @@ if __name__ == '__main__':
         cv2.waitKey(1)
         time.sleep(1)
 
-    if maybe_viz_during_script:
-        vis.destroy_window()
-    else:
-        with open("all_3d_pts.pkl", "rb") as f:
-            all_3d_pts = pickle.load(f)
+    MAYBE_SAVE_PKL = False
+    if MAYBE_SAVE_PKL:
+        with open("all_3d_pts.pkl", "wb") as f:
+            pickle.dump(all_3d_pts, f)
 
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(all_3d_pts.T)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(all_3d_pts.T)
 
-        # remove outlier pc
-        voxel_down_pcd = pcd.voxel_down_sample(voxel_size=0.02) # 0.01
-        # cl, ind = voxel_down_pcd.remove_statistical_outlier(nb_neighbors=25, std_ratio=1.5)
-        cl, ind = voxel_down_pcd.remove_radius_outlier(nb_points=16, radius=0.05)
-        voxel_down_pcd = cl.select_by_index(ind)
+    # remove outlier pc
+    voxel_down_pcd = pcd.voxel_down_sample(voxel_size=0.02) # 0.01
+    # cl, ind = voxel_down_pcd.remove_statistical_outlier(nb_neighbors=25, std_ratio=1.5)
+    cl, ind = voxel_down_pcd.remove_radius_outlier(nb_points=16, radius=0.05)
+    voxel_down_pcd = cl.select_by_index(ind)
 
-        # Alpha Mesh
-        mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(voxel_down_pcd, alpha=0.03)
-        mesh.compute_vertex_normals()
-        mesh.filter_smooth_laplacian(100)
+    # Alpha Mesh
+    mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(voxel_down_pcd, alpha=0.03)
+    mesh.compute_vertex_normals()
+    mesh.filter_smooth_laplacian(100)
 
-        # remove outliers
-        with o3d.utility.VerbosityContextManager(
-                o3d.utility.VerbosityLevel.Debug) as cm:
-            triangle_clusters, cluster_n_triangles, cluster_area = (
-                mesh.cluster_connected_triangles())
-        triangle_clusters = np.asarray(triangle_clusters)
-        cluster_n_triangles = np.asarray(cluster_n_triangles)
-        cluster_area = np.asarray(cluster_area)
-        mesh_0 = copy.deepcopy(mesh)
-        triangles_to_remove = cluster_n_triangles[triangle_clusters] < 50
-        mesh_0.remove_triangles_by_mask(triangles_to_remove)
-        o3d.visualization.draw_geometries([mesh_0])
+    # remove outliers
+    with o3d.utility.VerbosityContextManager(
+            o3d.utility.VerbosityLevel.Debug) as cm:
+        triangle_clusters, cluster_n_triangles, cluster_area = (
+            mesh.cluster_connected_triangles())
+    triangle_clusters = np.asarray(triangle_clusters)
+    cluster_n_triangles = np.asarray(cluster_n_triangles)
+    cluster_area = np.asarray(cluster_area)
+    mesh_0 = copy.deepcopy(mesh)
+    triangles_to_remove = cluster_n_triangles[triangle_clusters] < 50
+    mesh_0.remove_triangles_by_mask(triangles_to_remove)
+    o3d.visualization.draw_geometries([mesh_0])
     
     player.close()
     listener.join()
